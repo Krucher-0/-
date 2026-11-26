@@ -3,8 +3,13 @@
    - 同源静态资源：缓存优先 + 后台静默更新
    - 跨域资源（字体 / ECharts CDN）：有缓存先给，同时后台刷新
    仓库已更名为 dida-pwa，站点根路径为 /dida-pwa/，本文件内相对路径均以该目录为基准
+
+   版本说明：
+   - 对外语义版本（仅 index.html 底部展示）：v2.1
+   - 本文件 VERSION 为内部缓存标记，只在 sw 逻辑改动 / CORE 清单增删 / 静态资源替换时才升级；
+     仅修改 index.html 的业务 JS / CSS 时，不要改动下面的 VERSION。
 */
-const VERSION = 'v19';
+const VERSION = 'v17';
 const CACHE = 'dida-' + VERSION;
 const APP_PAGE = './';
 const CORE = [
