@@ -338,6 +338,34 @@ function chartPalette() {
     accent: cssVar('--green'), ink: cssVar('--ink'), soft: cssVar('--green-soft')
   };
 }
+/* ===== 交互音效（Web Audio 合成，无外部音频文件；首次点击后激活） ===== */
+let audioCtx = null;
+function initAudio() {
+  if (audioCtx) { if (audioCtx.state === 'suspended') audioCtx.resume().catch(()=>{}); return; }
+  try { audioCtx = new (window.AudioContext || window.webkitAudioContext)(); } catch (e) { audioCtx = null; }
+}
+function tone(freqStart, freqEnd, duration, volume) {
+  if (!audioCtx) return;
+  const osc = audioCtx.createOscillator();
+  const gain = audioCtx.createGain();
+  osc.type = 'sine';
+  osc.frequency.setValueAtTime(freqStart, audioCtx.currentTime);
+  osc.frequency.exponentialRampToValueAtTime(Math.max(1, freqEnd), audioCtx.currentTime + duration);
+  gain.gain.setValueAtTime(volume, audioCtx.currentTime);
+  gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + duration);
+  osc.connect(gain); gain.connect(audioCtx.destination);
+  osc.start(); osc.stop(audioCtx.currentTime + duration);
+}
+function sfx(name) {
+  if (!S || S.settings.sound === false) return;
+  initAudio();
+  if (name === 'complete') tone(520, 780, 0.12, 0.20);
+  else if (name === 'undo') tone(320, 220, 0.14, 0.16);
+  else if (name === 'open') tone(380, 460, 0.08, 0.11);
+  else if (name === 'close') tone(460, 380, 0.08, 0.11);
+  else if (name === 'reward') { tone(600, 880, 0.16, 0.18); setTimeout(() => tone(880, 1040, 0.12, 0.14), 70); }
+}
+document.addEventListener('pointerdown', initAudio, { passive:true });
 const dstr = d => `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
 function appDay(src = new Date()) {
   const d = new Date(src);
@@ -365,7 +393,7 @@ const DEFAULT_SETTINGS = () => ({
   baseVals:{ '＜30分钟':10, '30分钟~2小时':30, '2小时~半天':80, '半天~1天':150, '1天以上':300 },
   combos:[[0,0],[2,5],[4,12],[8,25],[15,40]],
   comboCap:30, slope:0.1, ratio:0.2, a:0.0648, b:50,
-  overdraft:-50, signCost:30, signQuota:2, resetHour:4, animate:true, sleepEnabled:true,
+  overdraft:-50, signCost:30, signQuota:2, resetHour:4, animate:true, sleepEnabled:true, sound:true,
   sleepGoal:{ bed:'23:00', wake:'07:00' }
 });
 const clone = o => JSON.parse(JSON.stringify(o));
@@ -591,6 +619,7 @@ function settleSleep(r) {
   addExp(exp); S.tokens += tok;
   log('earn', '作息打卡', exp, tok, 'sleep');
   r.exp = exp; r.token = tok;
+  sfx('reward');
 }
 function undoSleep() {
   const r = sleepRec(); if (!r) return;
@@ -685,6 +714,7 @@ function completeTask(id, subId) {
       t.status = 'done'; t.doneAt = new Date().toISOString();
       toast(`主线完成，补发 +${bExp} EXP / +${bTok} TOKEN`);
     } else toast(`+${expPart} EXP / +${tokenPart} TOKEN`);
+    sfx('complete');
     save(); renderAll(); return;
   }
   if (t.cat === 'daily') { if (t.lastDoneDay === appDay()) return; t.lastDoneDay = appDay(); }
@@ -701,6 +731,7 @@ function completeTask(id, subId) {
     res = { exp, tok };
   }
   const cb = touchCombo();
+  sfx('complete');
   save(); renderAll();
   toast(`+${res.exp} EXP / +${res.tok} TOKEN` + (cb ? ` · 连击 ${S.combo.streak} 天` : ''));
 }
@@ -722,7 +753,7 @@ function undoTask(id, subId) {
       }
       t.status = 'todo'; t.doneAt = null;
     }
-    save(); renderAll(); toast(`已撤销，回收 ${expPart} EXP / ${tokenPart} TOKEN`); return;
+    save(); renderAll(); sfx('undo'); toast(`已撤销，回收 ${expPart} EXP / ${tokenPart} TOKEN`); return;
   }
   const entries = earnEntries(id);
   let exp = 0, tok = 0;
@@ -731,7 +762,7 @@ function undoTask(id, subId) {
   t.subs.forEach(s => s.done = false);
   if (t.cat === 'daily') { t.lastDoneDay = null; reconcileCombo(); } else { t.status = 'todo'; t.doneAt = null; }
   t.count = 0;
-  save(); renderAll();
+  save(); renderAll(); sfx('undo');
   toast(`已撤销，回收 ${exp} EXP / ${tok} TOKEN`);
 }
 
@@ -1102,7 +1133,7 @@ function viewAccount() {
       ${item(ICON.share, '分享网页', '复制链接或调起系统分享', 'share')}
       ${item(ICON.refresh, '检查更新 · 强制刷新', '清掉旧缓存并拉取服务器最新版本', 'force-update')}
     </div>
-    <div class="foot-note">原型数据仅保存在本机浏览器<br>各账号的任务、等级、TOKEN 相互独立<br><span style="color:var(--faint)">构建版本 build 2026-11-26 · v12</span></div>`;
+    <div class="foot-note">原型数据仅保存在本机浏览器<br>各账号的任务、等级、TOKEN 相互独立<br><span style="color:var(--faint)">构建版本 build 2026-11-26 · v13</span></div>`;
 }
 
 /* =============== 导航 / 渲染 / 雷达 =============== */
@@ -1241,9 +1272,10 @@ let sheetTask = null, SUBEDIT = null;
 function openSheet(html, after) {
   sheet.innerHTML = `<div class="grab"></div>` + html;
   mask.classList.add('on');
+  sfx('open');
   after && after();
 }
-function closeSheet() { mask.classList.remove('on'); sheetTask = null; }
+function closeSheet() { mask.classList.remove('on'); sheetTask = null; sfx('close'); }
 mask.addEventListener('click', e => { if (e.target === mask) closeSheet(); });
 
 /* ----- 新建任务（弹窗） ----- */
@@ -1622,6 +1654,7 @@ function signDay(key) {
   save(); renderAll();
   sheet.innerHTML = '<div class="grab"></div>' + buildCalendar();
   toast('补签成功');
+  sfx('reward');
 }
 
 /* ----- 账号 ----- */
@@ -1704,6 +1737,7 @@ function openSettingsBasic() {
       <div class="form-row"><label>页面切换动效</label><button class="toggle ${set.animate ? 'on' : ''}" id="set-anim" data-act="toggle-anim"><i></i></button></div>
       <div class="form-row"><label>深色模式</label><button class="toggle ${currentTheme() === 'dark' ? 'on' : ''}" data-act="toggle-theme"><i></i></button></div>
       <div class="form-row"><label>作息打卡</label><button class="toggle ${set.sleepEnabled !== false ? 'on' : ''}" data-act="toggle-sleep"><i></i></button></div>
+      <div class="form-row"><label>交互音效</label><button class="toggle ${set.sound !== false ? 'on' : ''}" data-act="toggle-sound"><i></i></button></div>
     </div>
     <div class="act-list"><button class="solid" data-act="save-basic">保存设置</button></div>
     <div class="warnline">换日时间仅影响显示口径，连击判定目前仍按凌晨 4:00。</div>`);
@@ -1763,6 +1797,7 @@ document.addEventListener('click', e => {
     case 'sleep-wake-ok': saveSleepWake(document.getElementById('sleep-time').value); break;
     case 'sleep-undo': undoSleep(); save(); renderAll(); closeSheet(); toast('已撤销作息打卡，回收奖励'); break;
     case 'toggle-sleep': S.settings.sleepEnabled = !S.settings.sleepEnabled; save(); renderAll(); openSettingsBasic(); break;
+    case 'toggle-sound': S.settings.sound = !(S.settings.sound !== false); save(); renderAll(); openSettingsBasic(); break;
     case 'spend-ok': {
       const nm = document.getElementById('sp-name').value.trim();
       const amt = parseFloat(document.getElementById('sp-amt').value);
