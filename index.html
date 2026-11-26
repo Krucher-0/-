@@ -297,6 +297,16 @@ input.plain-inp:focus{border-color:var(--green)}
 .toast{position:fixed;left:50%;bottom:calc(92px + env(safe-area-inset-bottom));transform:translate(-50%,10px);background:var(--surface-2);color:var(--ink);border:1px solid var(--line-2);font-size:13px;padding:10px 16px;border-radius:20px;z-index:80;opacity:0;pointer-events:none;transition:opacity .2s,transform .2s;max-width:86vw;text-align:center}
 .toast.on{opacity:1;transform:translate(-50%,0)}
 
+/* 升级特效 */
+.lvup{position:fixed;inset:0;display:grid;place-items:center;z-index:90;pointer-events:none;animation:lvupFade 1.7s ease forwards}
+.lvup-card{position:relative;display:flex;flex-direction:column;align-items:center;gap:8px;padding:26px 38px;border-radius:22px;background:var(--surface);border:1px solid var(--green);box-shadow:0 12px 40px rgba(0,0,0,.25);animation:lvpop .5s cubic-bezier(.2,1.4,.4,1) both}
+.lvup-badge{font-size:13px;font-weight:800;letter-spacing:.28em;color:var(--green)}
+.lvup-lv{font-size:26px;font-weight:900;color:var(--ink)}
+.lvup-card span{position:absolute;top:-10px;width:7px;height:7px;border-radius:2px;animation:lvconfetti 1.4s ease-in forwards}
+@keyframes lvupFade{0%{opacity:0}12%{opacity:1}78%{opacity:1}100%{opacity:0}}
+@keyframes lvpop{0%{transform:scale(.5);opacity:0}100%{transform:scale(1);opacity:1}}
+@keyframes lvconfetti{0%{transform:translateY(0) rotate(0);opacity:1}100%{transform:translateY(120px) rotate(320deg);opacity:0}}
+
 @media (max-width:380px){.page{padding:18px 15px calc(76px + env(safe-area-inset-bottom))}.date{font-size:23px}}
 @media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
 </style>
@@ -364,6 +374,7 @@ function sfx(name) {
   else if (name === 'open') tone(380, 460, 0.08, 0.11);
   else if (name === 'close') tone(460, 380, 0.08, 0.11);
   else if (name === 'reward') { tone(600, 880, 0.16, 0.18); setTimeout(() => tone(880, 1040, 0.12, 0.14), 70); }
+  else if (name === 'levelup') { [523, 659, 784, 1046].forEach((f, i) => setTimeout(() => tone(f, f, 0.16, 0.2), i * 110)); }
 }
 document.addEventListener('pointerdown', initAudio, { passive:true });
 const dstr = d => `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
@@ -629,7 +640,21 @@ function undoSleep() {
   reconcileCombo();
 }
 
-function addExp(n) { S.exp += n; let ups = 0; while (S.exp >= needExp(S.level)) { S.exp -= needExp(S.level); S.level++; ups++; } return ups; }
+let lvupQueued = 0;
+function addExp(n) { S.exp += n; let ups = 0; while (S.exp >= needExp(S.level)) { S.exp -= needExp(S.level); S.level++; ups++; } lvupQueued += ups; return ups; }
+function checkLevelUp() { if (lvupQueued > 0) { const n = lvupQueued; lvupQueued = 0; fireLevelUp(n); } }
+function fireLevelUp() {
+  sfx('levelup');
+  const colors = ['var(--green)', 'var(--amber)', 'var(--blue)', 'var(--red)'];
+  const pieces = Array.from({ length: 16 }, (_, i) =>
+    `<span style="left:${Math.random() * 92 + 4}%;animation-delay:${Math.random() * .25}s;background:${colors[i % 4]}"></span>`
+  ).join('');
+  const ov = document.createElement('div');
+  ov.className = 'lvup';
+  ov.innerHTML = `<div class="lvup-card">${pieces}<div class="lvup-badge">LEVEL UP</div><div class="lvup-lv">达到 Lv${S.level}</div></div>`;
+  document.body.appendChild(ov);
+  setTimeout(() => ov.remove(), 1800);
+}
 function subExp(n) { S.exp -= n; while (S.exp < 0 && S.level > 1) { S.level--; S.exp += needExp(S.level); } if (S.exp < 0) S.exp = 0; }
 function touchCombo() {
   if (dailyRate() > 0.8 && S.combo.lastDay !== appDay()) {
@@ -715,7 +740,7 @@ function completeTask(id, subId) {
       toast(`主线完成，补发 +${bExp} EXP / +${bTok} TOKEN`);
     } else toast(`+${expPart} EXP / +${tokenPart} TOKEN`);
     sfx('complete');
-    save(); renderAll(); return;
+    save(); renderAll(); checkLevelUp(); return;
   }
   if (t.cat === 'daily') { if (t.lastDoneDay === appDay()) return; t.lastDoneDay = appDay(); }
   else { if (t.status === 'done') return; }
@@ -732,7 +757,7 @@ function completeTask(id, subId) {
   }
   const cb = touchCombo();
   sfx('complete');
-  save(); renderAll();
+  save(); renderAll(); checkLevelUp();
   toast(`+${res.exp} EXP / +${res.tok} TOKEN` + (cb ? ` · 连击 ${S.combo.streak} 天` : ''));
 }
 function undoTask(id, subId) {
@@ -1133,7 +1158,7 @@ function viewAccount() {
       ${item(ICON.share, '分享网页', '复制链接或调起系统分享', 'share')}
       ${item(ICON.refresh, '检查更新 · 强制刷新', '清掉旧缓存并拉取服务器最新版本', 'force-update')}
     </div>
-    <div class="foot-note">原型数据仅保存在本机浏览器<br>各账号的任务、等级、TOKEN 相互独立<br><span style="color:var(--faint)">构建版本 build 2026-11-27 · v14</span></div>`;
+    <div class="foot-note">原型数据仅保存在本机浏览器<br>各账号的任务、等级、TOKEN 相互独立<br><span style="color:var(--faint)">构建版本 build 2026-11-27 · v15</span></div>`;
 }
 
 /* =============== 导航 / 渲染 / 雷达 =============== */
@@ -1499,7 +1524,7 @@ function saveSleepWake(val) {
   r.dur = sleepDur(r.bed, val);
   settleSleep(r);
   const cb = touchCombo();
-  save(); renderAll(); closeSheet();
+  save(); renderAll(); closeSheet(); checkLevelUp();
   toast(`作息完成，睡眠 ${fmtDur(r.dur)} · +${r.exp} EXP / +${r.token} T` + (cb ? ` · 连击 ${S.combo.streak} 天` : ''));
 }
 

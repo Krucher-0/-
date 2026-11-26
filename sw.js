@@ -4,7 +4,7 @@
    - 跨域资源（字体 / ECharts CDN）：有缓存先给，同时后台刷新
    仓库已更名为 dida-pwa，站点根路径为 /dida-pwa/，本文件内相对路径均以该目录为基准
 */
-const VERSION = 'v18';
+const VERSION = 'v19';
 const CACHE = 'dida-' + VERSION;
 const APP_PAGE = './';
 const CORE = [
