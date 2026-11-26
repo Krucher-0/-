@@ -4,7 +4,7 @@
    - 跨域资源（字体 / ECharts CDN）：有缓存先给，同时后台刷新
    仓库已更名为 dida-pwa，站点根路径为 /dida-pwa/，本文件内相对路径均以该目录为基准
 */
-const VERSION = 'v12';
+const VERSION = 'v14';
 const CACHE = 'dida-' + VERSION;
 const APP_PAGE = './';
 const CORE = [
@@ -65,8 +65,8 @@ async function networkFirst(req) {
     if (page) return page;
     return new Response(
       '<!doctype html><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">' +
-      '<body style="margin:0;display:grid;place-items:center;height:100vh;background:#EDEDE7;color:#15191A;font-family:sans-serif">' +
-      '<div style="text-align:center"><div style="font-size:40px">⏱</div><p style="font-size:15px;color:#6E767B">当前离线，且缓存未就绪<br>请联网后再打开一次</p></div></body>',
+      '<body style="margin:0;display:grid;place-items:center;height:100vh;background:#0B1626;color:#F2F5FA;font-family:sans-serif">' +
+      '<div style="text-align:center"><div style="font-size:40px">⏱</div><p style="font-size:15px;color:#8DA2BD">当前离线，且缓存未就绪<br>请联网后再打开一次</p></div></body>',
       { headers: { 'Content-Type': 'text/html; charset=utf-8' } }
     );
   }
