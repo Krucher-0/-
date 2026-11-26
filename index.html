@@ -55,7 +55,7 @@ input,select,textarea{font-family:inherit;font-size:16px;color:inherit}
   -webkit-overflow-scrolling:touch;
   overscroll-behavior-y:contain;
   touch-action:pan-y;
-  padding:22px 20px calc(96px + env(safe-area-inset-bottom));
+  padding:22px 20px calc(var(--nav-h, 76px) + env(safe-area-inset-bottom) + 18px);
 }
 .page::-webkit-scrollbar{width:0;height:0;display:none}
 .page{scrollbar-width:none;-ms-overflow-style:none}
@@ -1052,7 +1052,7 @@ function viewAccount() {
       ${item(ICON.share, '分享网页', '复制链接或调起系统分享', 'share')}
       ${item(ICON.refresh, '检查更新 · 强制刷新', '清掉旧缓存并拉取服务器最新版本', 'force-update')}
     </div>
-    <div class="foot-note">原型数据仅保存在本机浏览器<br>各账号的任务、等级、TOKEN 相互独立<br><span style="color:#9AA1A4">构建版本 build 2026-11-26 · v7</span></div>`;
+    <div class="foot-note">原型数据仅保存在本机浏览器<br>各账号的任务、等级、TOKEN 相互独立<br><span style="color:#9AA1A4">构建版本 build 2026-11-26 · v8</span></div>`;
 }
 
 /* =============== 导航 / 渲染 / 雷达 =============== */
@@ -1886,7 +1886,25 @@ track.classList.toggle('no-anim', !S.settings.animate);
 if (location.hash && ORDER.includes(location.hash.slice(1))) VIEW = location.hash.slice(1);
 renderAll();
 setView(VIEW, true);
-setTimeout(fitStage, 300);
+
+/* 视口高度 / 导航栏高度自适应：软键盘、系统手势条、横竖屏切换后立刻重算，避免底部内容被挡住拉不到 */
+function fitApp() {
+  const app = document.querySelector('.app');
+  if (!app) return;
+  const h = window.innerHeight || document.documentElement.clientHeight || 0;
+  if (h > 0) app.style.height = h + 'px';
+  const nav = document.querySelector('.navin');
+  if (nav) app.style.setProperty('--nav-h', nav.offsetHeight + 'px');
+}
+window.addEventListener('resize', fitApp);
+window.addEventListener('orientationchange', () => setTimeout(fitApp, 250));
+if (window.visualViewport) {
+  window.visualViewport.addEventListener('resize', fitApp);
+  window.visualViewport.addEventListener('scroll', fitApp);
+}
+fitApp();
+setTimeout(fitApp, 300);
+setTimeout(fitApp, 800);
 
 let toastTimer = null;
 function toast(msg) {
