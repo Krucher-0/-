@@ -65,6 +65,8 @@ body{
   background-size:22px 22px;-webkit-font-smoothing:antialiased;overscroll-behavior:none;
 }
 button{font-family:inherit;color:inherit;border:0;background:none;cursor:pointer}
+*{ -webkit-touch-callout:none; -webkit-user-select:none; -moz-user-select:none; -ms-user-select:none; user-select:none; }
+input,select,textarea,[contenteditable]{ -webkit-user-select:auto; -moz-user-select:auto; -ms-user-select:auto; user-select:auto; }
 input,select,textarea{font-family:inherit;font-size:16px;color:inherit}
 ::selection{background:var(--green-soft)}
 /* 整页固定：内容由每一页自己纵向滚动，彻底避开「整页滚不动」的坑 */
@@ -1342,7 +1344,10 @@ document.addEventListener('mousedown', e => {
 });
 document.addEventListener('mouseup', lpClear);
 document.addEventListener('mouseleave', lpClear);
-document.addEventListener('contextmenu', e => { if (e.target.closest && e.target.closest('[data-long]')) e.preventDefault(); });
+document.addEventListener('contextmenu', e => {
+  if (e.target.closest && e.target.closest('input,select,textarea,[contenteditable]')) return;
+  e.preventDefault();
+});
 
 /* =============== 弹层 =============== */
 const mask = $('#mask'), sheet = $('#sheet');
@@ -1485,7 +1490,6 @@ function openTask(id) {
         <div class="sub-edit-row">
           <input id="sub-edit-name" type="text" maxlength="30" value="${esc(s.t)}">
           <button class="mini-btn" data-act="sub-save" data-id="${t.id}" data-sub="${s.id}">保存</button>
-          <button class="mini-btn" data-act="sub-cancel" data-id="${t.id}">取消</button>
         </div>` : `
         <div class="subline ${s.done?'done':''}" style="padding:11px 14px" data-long="sub" data-id="${t.id}" data-sub="${s.id}">
           <button class="ck ${s.done?'on':''}" data-act="${s.done?'undo-sub':'complete-sub'}" data-id="${t.id}" data-sub="${s.id}">${ICON.check}</button>
@@ -1880,7 +1884,6 @@ document.addEventListener('click', e => {
     case 'complete-sub': completeTask(id, sub); if (sheetTask) openTask(sheetTask); break;
     case 'undo-sub': undoTask(id, sub); if (sheetTask) openTask(sheetTask); break;
     case 'open': openTask(id); break;
-    case 'sub-cancel': subCancel(id); break;
     case 'sub-save': subSave(id, sub); break;
     case 'del': {
       S.tasks = S.tasks.filter(x => x.id !== id);
