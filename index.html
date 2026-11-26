@@ -5,15 +5,15 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>嘀嗒 · 记事激励</title>
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='6' fill='%230B1626'/><path d='M16 7v10.5l6.5 3.8' stroke='%23FFFFFF' stroke-width='2.6' fill='none' stroke-linecap='round'/></svg>">
-<link rel="manifest" href="/dida-pwa/manifest.json">
+<link rel="manifest" href="./manifest.json">
 <meta name="theme-color" content="#0B1626">
 <script>/* 启动前先恢复主题，避免闪白/闪黑 */
 try{if(localStorage.getItem('dida-theme')==='light')document.documentElement.dataset.theme='light';}catch(e){}
 </script>
 <meta name="application-name" content="嘀嗒">
 <meta name="apple-mobile-web-app-title" content="嘀嗒">
-<link rel="apple-touch-icon" sizes="180x180" href="/dida-pwa/icon-180.png">
-<link rel="apple-touch-icon" sizes="192x192" href="/dida-pwa/icon-192.png">
+<link rel="apple-touch-icon" sizes="180x180" href="./icon-180.png">
+<link rel="apple-touch-icon" sizes="192x192" href="./icon-192.png">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="mobile-web-app-capable" content="yes">
@@ -1102,7 +1102,7 @@ function viewAccount() {
       ${item(ICON.share, '分享网页', '复制链接或调起系统分享', 'share')}
       ${item(ICON.refresh, '检查更新 · 强制刷新', '清掉旧缓存并拉取服务器最新版本', 'force-update')}
     </div>
-    <div class="foot-note">原型数据仅保存在本机浏览器<br>各账号的任务、等级、TOKEN 相互独立<br><span style="color:var(--faint)">构建版本 build 2026-11-26 · v10</span></div>`;
+    <div class="foot-note">原型数据仅保存在本机浏览器<br>各账号的任务、等级、TOKEN 相互独立<br><span style="color:var(--faint)">构建版本 build 2026-11-26 · v12</span></div>`;
 }
 
 /* =============== 导航 / 渲染 / 雷达 =============== */
