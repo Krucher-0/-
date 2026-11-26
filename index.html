@@ -38,19 +38,15 @@ input,select,textarea{font-family:inherit;font-size:16px;color:inherit}
 ::selection{background:var(--green-soft)}
 .app{max-width:520px;margin:0 auto;min-height:100vh;position:relative}
 
-/* ===== 滑动轨道（原生横向滚动+吸附，纵向滚动完全交给浏览器） ===== */
+/* ===== 滑动轨道（overflow:clip 不产生滚动容器，纵向手势直接交给页面滚动） ===== */
 .stage{
   position:relative;
-  overflow-x:auto;overflow-y:hidden;
-  scroll-snap-type:x mandatory;
-  overscroll-behavior-x:contain;
-  -webkit-overflow-scrolling:touch;
-  touch-action:auto;
-  scrollbar-width:none;-ms-overflow-style:none;
+  overflow:clip;
+  touch-action:pan-y;
 }
-.stage::-webkit-scrollbar{display:none;width:0;height:0}
-.track{display:flex;width:400%;align-items:flex-start}
-.page{flex:0 0 25%;width:25%;min-width:0;align-self:flex-start;scroll-snap-align:start;scroll-snap-stop:always;padding:22px 20px calc(84px + env(safe-area-inset-bottom))}
+.track{display:flex;width:400%;align-items:flex-start;transition:transform .32s cubic-bezier(.22,.8,.32,1);will-change:transform}
+.track.no-anim{transition:none}
+.page{flex:0 0 25%;width:25%;min-width:0;align-self:flex-start;padding:22px 20px calc(84px + env(safe-area-inset-bottom))}
 
 /* ===== 顶部 ===== */
 .topline{display:flex;align-items:flex-end;justify-content:space-between;gap:12px;margin-bottom:18px}
@@ -1042,7 +1038,7 @@ function viewAccount() {
       ${item(ICON.db, '数据管理', '导出 / 导入备份、重置本账号', 'settings-data')}
       ${item(ICON.share, '分享网页', '复制链接或调起系统分享', 'share')}
     </div>
-    <div class="foot-note">原型数据仅保存在本机浏览器<br>各账号的任务、等级、TOKEN 相互独立<br><span style="color:#9AA1A4">构建版本 build 2026-11-26 · v3</span></div>`;
+    <div class="foot-note">原型数据仅保存在本机浏览器<br>各账号的任务、等级、TOKEN 相互独立<br><span style="color:#9AA1A4">构建版本 build 2026-11-26 · v4</span></div>`;
 }
 
 /* =============== 导航 / 渲染 / 雷达 =============== */
@@ -1054,8 +1050,22 @@ function renderNav() {
 }
 function fitStage() {
   const el = document.getElementById('v-' + VIEW);
-  if (el) stage.style.height = el.offsetHeight + 'px';
+  if (!el) return;
+  // 取内容真实高度（含内边距），避免字体/图表异步加载后内容被裁切
+  const h = Math.max(el.offsetHeight, Math.ceil(el.getBoundingClientRect().height));
+  if (h > 0) stage.style.height = h + 'px';
 }
+/* 内容高度变化时自动重算，防止异步渲染（字体、雷达图、列表增删）把页面裁掉 */
+if (window.ResizeObserver) {
+  try {
+    const ro = new ResizeObserver(() => { fitStage(); });
+    ['v-today', 'v-tasks', 'v-growth', 'v-account'].forEach(id => {
+      const el = document.getElementById(id);
+      if (el) ro.observe(el);
+    });
+  } catch (e) {}
+}
+if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => fitStage()).catch(() => {});
 function renderAll() {
   $('#v-today').innerHTML = viewToday();
   $('#v-tasks').innerHTML = viewTasks();
@@ -1112,11 +1122,14 @@ function setView(v, instant) {
   const wasSame = (v === VIEW);
   VIEW = v;
   const w = stage.clientWidth || window.innerWidth;
-  viewScrolling = true;
-  if (instant || !S.settings.animate) stage.scrollTo({ left: idx * w, behavior: 'auto' });
-  else stage.scrollTo({ left: idx * w, behavior: 'smooth' });
-  clearTimeout(setView._t);
-  setView._t = setTimeout(() => { viewScrolling = false; }, 480);
+  const x = -idx * w;
+  if (instant || !S.settings.animate) {
+    track.classList.add('no-anim');
+    track.style.transform = `translate3d(${x}px,0,0)`;
+  } else {
+    track.classList.remove('no-anim');
+    track.style.transform = `translate3d(${x}px,0,0)`;
+  }
   if (v === 'growth') setTimeout(drawRadar, 30);
   renderNav();
   fitStage();
@@ -1133,25 +1146,37 @@ window.addEventListener('hashchange', () => {
   if (ORDER.includes(v) && v !== VIEW) setView(v);
 });
 
-/* =============== 横向滑动：原生滚动吸附，纵向滚动完全交给浏览器 =============== */
-let scrollTimer = null;
-stage.addEventListener('scroll', () => {
-  if (viewScrolling) return;
-  clearTimeout(scrollTimer);
-  scrollTimer = setTimeout(() => {
-    const w = stage.clientWidth || window.innerWidth;
-    if (!w) return;
-    const idx = Math.round(stage.scrollLeft / w);
-    const v = ORDER[Math.max(0, Math.min(ORDER.length - 1, idx))];
-    if (v && v !== VIEW) {
-      VIEW = v;
-      if (v === 'growth') setTimeout(drawRadar, 30);
-      renderNav();
-      fitStage();
-      syncHash(v);
-    }
-  }, 130);
+/* =============== 左右滑动切换（被动监听，绝不 preventDefault，纵向滚动完全交给浏览器） =============== */
+let swX = 0, swY = 0, swT = 0, swActive = false;
+function swipeStart(x, y) { swX = x; swY = y; swT = Date.now(); swActive = true; }
+function swipeEnd(x, y) {
+  if (!swActive) return;
+  swActive = false;
+  const dx = x - swX, dy = y - swY, dt = Date.now() - swT;
+  if (dt > 700) return;                       // 慢速拖动视为普通浏览
+  if (Math.abs(dx) < 56 || Math.abs(dy) > 40) return;   // 横向距离不够，或明显是竖向/斜向滑动 → 不翻页
+  if (Math.abs(dx) < Math.abs(dy) * 1.8) return;
+  const idx = ORDER.indexOf(VIEW);
+  if (dx < 0 && idx < ORDER.length - 1) setView(ORDER[idx + 1]);
+  else if (dx > 0 && idx > 0) setView(ORDER[idx - 1]);
+}
+stage.addEventListener('touchstart', e => {
+  if (e.touches.length !== 1) { swActive = false; return; }
+  swipeStart(e.touches[0].clientX, e.touches[0].clientY);
 }, { passive: true });
+stage.addEventListener('touchend', e => {
+  const t = e.changedTouches && e.changedTouches[0];
+  if (t) swipeEnd(t.clientX, t.clientY);
+}, { passive: true });
+stage.addEventListener('touchcancel', () => { swActive = false; }, { passive: true });
+/* 桌面端鼠标拖拽（不影响移动端） */
+stage.addEventListener('mousedown', e => {
+  if (e.button !== 0) return;
+  swipeStart(e.clientX, e.clientY);
+});
+window.addEventListener('mouseup', e => {
+  swipeEnd(e.clientX, e.clientY);
+});
 
 /* =============== 弹层 =============== */
 const mask = $('#mask'), sheet = $('#sheet');
