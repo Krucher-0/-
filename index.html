@@ -38,12 +38,19 @@ input,select,textarea{font-family:inherit;font-size:16px;color:inherit}
 ::selection{background:var(--green-soft)}
 .app{max-width:520px;margin:0 auto;min-height:100vh;position:relative}
 
-/* ===== 滑动轨道 ===== */
-.stage{position:relative;overflow:hidden;touch-action:pan-y}
-.page,.page button,.page .dimbtn,.page .card,.page .maincard,.page .row,.page .dims{touch-action:pan-y}
-.track{display:flex;width:400%;align-items:flex-start;transition:transform .36s cubic-bezier(.22,.8,.32,1)}
-.track.no-anim{transition:none}
-.page{flex:0 0 25%;width:25%;min-width:0;align-self:flex-start;padding:22px 20px calc(84px + env(safe-area-inset-bottom))}
+/* ===== 滑动轨道（原生横向滚动+吸附，纵向滚动完全交给浏览器） ===== */
+.stage{
+  position:relative;
+  overflow-x:auto;overflow-y:hidden;
+  scroll-snap-type:x mandatory;
+  overscroll-behavior-x:contain;
+  -webkit-overflow-scrolling:touch;
+  touch-action:auto;
+  scrollbar-width:none;-ms-overflow-style:none;
+}
+.stage::-webkit-scrollbar{display:none;width:0;height:0}
+.track{display:flex;width:400%;align-items:flex-start}
+.page{flex:0 0 25%;width:25%;min-width:0;align-self:flex-start;scroll-snap-align:start;scroll-snap-stop:always;padding:22px 20px calc(84px + env(safe-area-inset-bottom))}
 
 /* ===== 顶部 ===== */
 .topline{display:flex;align-items:flex-end;justify-content:space-between;gap:12px;margin-bottom:18px}
@@ -1035,7 +1042,7 @@ function viewAccount() {
       ${item(ICON.db, '数据管理', '导出 / 导入备份、重置本账号', 'settings-data')}
       ${item(ICON.share, '分享网页', '复制链接或调起系统分享', 'share')}
     </div>
-    <div class="foot-note">原型数据仅保存在本机浏览器<br>各账号的任务、等级、TOKEN 相互独立</div>`;
+    <div class="foot-note">原型数据仅保存在本机浏览器<br>各账号的任务、等级、TOKEN 相互独立<br><span style="color:#9AA1A4">构建版本 build 2026-11-26 · v3</span></div>`;
 }
 
 /* =============== 导航 / 渲染 / 雷达 =============== */
@@ -1098,15 +1105,22 @@ function drawRadar() {
 }
 window.addEventListener('resize', () => { if (VIEW === 'growth') setTimeout(drawRadar, 120); fitStage(); });
 
-function setView(v) {
-  VIEW = v;
+let viewScrolling = false;
+function setView(v, instant) {
   const idx = ORDER.indexOf(v);
+  if (idx < 0) return;
+  const wasSame = (v === VIEW);
+  VIEW = v;
   const w = stage.clientWidth || window.innerWidth;
-  track.style.transform = `translateX(${-idx * w}px)`;
+  viewScrolling = true;
+  if (instant || !S.settings.animate) stage.scrollTo({ left: idx * w, behavior: 'auto' });
+  else stage.scrollTo({ left: idx * w, behavior: 'smooth' });
+  clearTimeout(setView._t);
+  setView._t = setTimeout(() => { viewScrolling = false; }, 480);
   if (v === 'growth') setTimeout(drawRadar, 30);
   renderNav();
   fitStage();
-  window.scrollTo({ top: 0 });
+  if (!wasSame) window.scrollTo({ top: 0 });
   syncHash(v);
 }
 /* 让 URL hash 跟随当前页，PWA 快捷方式 / 浏览器前进后退可直达 */
@@ -1119,55 +1133,25 @@ window.addEventListener('hashchange', () => {
   if (ORDER.includes(v) && v !== VIEW) setView(v);
 });
 
-/* =============== 手势滑动 =============== */
-let dragging = false, swiping = false, sx = 0, sy = 0, dx = 0, dy = 0, moved = false;
-stage.addEventListener('pointerdown', e => {
-  if (e.pointerType === 'mouse' && e.button !== 0) return;
-  dragging = true; swiping = false; moved = false;
-  sx = e.clientX; sy = e.clientY; dx = 0; dy = 0;
-});
-stage.addEventListener('pointermove', e => {
-  if (!dragging) return;
-  const mx = e.clientX - sx, my = e.clientY - sy;
-  if (!swiping) {
-    // 先判定方向：竖向滑动幅度更大 → 不接管手势，交还给浏览器原生上下滚动
-    if (Math.abs(my) > Math.abs(mx) && Math.abs(my) > 10) {
-      dragging = false;
-      track.classList.remove('no-anim');
-      return;
+/* =============== 横向滑动：原生滚动吸附，纵向滚动完全交给浏览器 =============== */
+let scrollTimer = null;
+stage.addEventListener('scroll', () => {
+  if (viewScrolling) return;
+  clearTimeout(scrollTimer);
+  scrollTimer = setTimeout(() => {
+    const w = stage.clientWidth || window.innerWidth;
+    if (!w) return;
+    const idx = Math.round(stage.scrollLeft / w);
+    const v = ORDER[Math.max(0, Math.min(ORDER.length - 1, idx))];
+    if (v && v !== VIEW) {
+      VIEW = v;
+      if (v === 'growth') setTimeout(drawRadar, 30);
+      renderNav();
+      fitStage();
+      syncHash(v);
     }
-    // 横向滑动达到阈值，才进入左右翻页拖拽
-    if (Math.abs(mx) > 10) {
-      swiping = true; moved = true;
-      track.classList.add('no-anim');
-      try { stage.setPointerCapture(e.pointerId); } catch (err) {}
-    } else {
-      return;
-    }
-  }
-  dx = mx; dy = my;
-  let idx = ORDER.indexOf(VIEW);
-  let off = dx;
-  if ((idx === 0 && dx > 0) || (idx === ORDER.length - 1 && dx < 0)) off *= 0.35;
-  const w = stage.clientWidth || window.innerWidth;
-  track.style.transform = `translateX(${ -idx * w + off }px)`;
-  if (e.cancelable) e.preventDefault();
-}, { passive:false });
-function endDrag() {
-  if (!dragging) return;
-  dragging = false;
-  track.classList.remove('no-anim');
-  if (!S.settings.animate) track.classList.add('no-anim');
-  if (!swiping) { dx = 0; return; }
-  const idx = ORDER.indexOf(VIEW);
-  if (dx < -60 && idx < ORDER.length - 1) setView(ORDER[idx + 1]);
-  else if (dx > 60 && idx > 0) setView(ORDER[idx - 1]);
-  else setView(VIEW);
-  dx = 0;
-}
-stage.addEventListener('pointerup', endDrag);
-stage.addEventListener('pointercancel', endDrag);
-stage.addEventListener('pointerleave', endDrag);
+  }, 130);
+}, { passive: true });
 
 /* =============== 弹层 =============== */
 const mask = $('#mask'), sheet = $('#sheet');
@@ -1847,7 +1831,7 @@ if (S.sign.month !== appDay().slice(0,7)) { S.sign = { month:appDay().slice(0,7)
 track.classList.toggle('no-anim', !S.settings.animate);
 if (location.hash && ORDER.includes(location.hash.slice(1))) VIEW = location.hash.slice(1);
 renderAll();
-setView(VIEW);
+setView(VIEW, true);
 setTimeout(fitStage, 300);
 
 let toastTimer = null;
