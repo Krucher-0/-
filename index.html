@@ -156,8 +156,6 @@ input,select,textarea{font-family:inherit;font-size:16px;color:inherit}
 .subline .ck svg{width:9px;height:9px}
 .subline .rw{margin-left:auto;color:var(--muted);font-size:11px}
 .subline>span:first-of-type{flex:1;min-width:0}
-.sub-ops{display:flex;gap:6px;align-items:center;margin-left:8px}
-.sub-ops .mini-btn{padding:4px 8px;font-size:11px}
 .sub-edit-row{display:flex;gap:8px;align-items:center;padding:11px 14px}
 .sub-edit-row input{flex:1;min-width:0;padding:8px 10px;border:1px solid var(--line-2);border-radius:8px;background:var(--surface-2);font-size:13px}
 .subline.done span{color:var(--faint);text-decoration:line-through}
@@ -642,7 +640,7 @@ function undoSleep() {
 
 let lvupQueued = 0;
 function addExp(n) { S.exp += n; let ups = 0; while (S.exp >= needExp(S.level)) { S.exp -= needExp(S.level); S.level++; ups++; } lvupQueued += ups; return ups; }
-function checkLevelUp() { if (lvupQueued > 0) { const n = lvupQueued; lvupQueued = 0; fireLevelUp(n); } }
+function checkLevelUp() { if (lvupQueued > 0) { lvupQueued = 0; fireLevelUp(); } }
 function fireLevelUp() {
   sfx('levelup');
   const colors = ['var(--green)', 'var(--amber)', 'var(--blue)', 'var(--red)'];
@@ -1158,7 +1156,7 @@ function viewAccount() {
       ${item(ICON.share, '分享网页', '复制链接或调起系统分享', 'share')}
       ${item(ICON.refresh, '检查更新 · 强制刷新', '清掉旧缓存并拉取服务器最新版本', 'force-update')}
     </div>
-    <div class="foot-note">原型数据仅保存在本机浏览器<br>各账号的任务、等级、TOKEN 相互独立<br><span style="color:var(--faint)">嘀嗒 v2.1</span></div>`;
+    <div class="foot-note">原型数据仅保存在本机浏览器<br>各账号的任务、等级、TOKEN 相互独立<br><span style="color:var(--faint)">嘀嗒 v2.1.1</span></div>`;
 }
 
 /* =============== 导航 / 渲染 / 雷达 =============== */
@@ -1309,26 +1307,68 @@ window.addEventListener('mouseup', e => {
   swipeEnd(e.clientX, e.clientY);
 });
 
+/* 长按进入编辑（任务标题/描述、子任务） */
+let lpTimer = null, lpStart = null;
+function lpClear() { if (lpTimer) clearTimeout(lpTimer); lpTimer = null; lpStart = null; }
+function lpStartPress(x, y, el) {
+  lpStart = { x, y };
+  lpTimer = setTimeout(() => { lpTimer = null; fireLongPress(el); }, 480);
+}
+function fireLongPress(el) {
+  const kind = el.dataset.long, id = el.dataset.id, sub = el.dataset.sub;
+  if (kind === 'task') openEditTask(id);
+  else if (kind === 'sub') { SUBEDIT = sub; openTask(id); }
+}
+function lpTarget(e) {
+  const el = e.target.closest && e.target.closest('[data-long]');
+  if (!el || e.target.closest('button,.ck')) return null;
+  return el;
+}
+document.addEventListener('touchstart', e => {
+  const el = lpTarget(e); if (!el) return;
+  lpStartPress(e.touches[0].clientX, e.touches[0].clientY, el);
+}, { passive: true });
+document.addEventListener('touchmove', e => {
+  if (!lpTimer) return;
+  const t = e.touches[0];
+  if (Math.abs(t.clientX - lpStart.x) > 10 || Math.abs(t.clientY - lpStart.y) > 10) lpClear();
+}, { passive: true });
+document.addEventListener('touchend', lpClear);
+document.addEventListener('touchcancel', lpClear);
+document.addEventListener('mousedown', e => {
+  if (e.button !== 0) return;
+  const el = lpTarget(e); if (!el) return;
+  lpStartPress(e.clientX, e.clientY, el);
+});
+document.addEventListener('mouseup', lpClear);
+document.addEventListener('mouseleave', lpClear);
+document.addEventListener('contextmenu', e => { if (e.target.closest && e.target.closest('[data-long]')) e.preventDefault(); });
+
 /* =============== 弹层 =============== */
 const mask = $('#mask'), sheet = $('#sheet');
-let sheetTask = null, SUBEDIT = null;
+let sheetTask = null, SUBEDIT = null, EDIT_ID = null;
 function openSheet(html, after) {
   sheet.innerHTML = `<div class="grab"></div>` + html;
   mask.classList.add('on');
   sfx('open');
   after && after();
 }
-function closeSheet() { mask.classList.remove('on'); sheetTask = null; sfx('close'); }
+function closeSheet() {
+  mask.classList.remove('on'); sheetTask = null; SUBEDIT = null; EDIT_ID = null;
+  if (sleepChart) { try { sleepChart.dispose(); } catch (e) {} sleepChart = null; }
+  sfx('close');
+}
 mask.addEventListener('click', e => { if (e.target === mask) closeSheet(); });
 
 /* ----- 新建任务（弹窗） ----- */
 const FORM = { cat:'side', dim:'自我提升', prio:3, base:'30分钟~2小时', repeat:'none' };
-function buildFormHTML() {
+function toLocalInput(iso) { if (!iso) return ''; const d = new Date(iso); if (isNaN(d)) return ''; const p = n => String(n).padStart(2,'0'); return `${d.getFullYear()}-${p(d.getMonth()+1)}-${p(d.getDate())}T${p(d.getHours())}:${p(d.getMinutes())}`; }
+function buildFormHTML(isEdit) {
   return `
-    <h3>新建任务</h3>
-    <div class="sub">填完保存，奖励按公式实时预估。</div>
+    <h3>${isEdit ? '编辑任务' : '新建任务'}</h3>
+    <div class="sub">${isEdit ? '修改后保存，奖励按公式实时预估。' : '填完保存，奖励按公式实时预估。'}</div>
     <div style="margin-top:14px;display:flex;flex-direction:column;gap:13px">
-      <div class="seg" id="seg">${['main','side','daily'].map(c => `<button data-act="f-cat" data-v="${c}" class="${FORM.cat === c ? 'on' : ''}">${CATS[c].l}</button>`).join('')}</div>
+      ${isEdit ? '' : `<div class="seg" id="seg">${['main','side','daily'].map(c => `<button data-act="f-cat" data-v="${c}" class="${FORM.cat === c ? 'on' : ''}">${CATS[c].l}</button>`).join('')}</div>`}
       <div class="field"><label for="f-name">任务名称</label><input id="f-name" type="text" maxlength="40" placeholder="例：读完《深度学习入门》第 3 章"></div>
       <div class="field"><label for="f-desc">补充描述（可空，写清完成标准）</label><textarea id="f-desc" placeholder="完成后怎么算数？"></textarea></div>
       <div class="field"><span class="flabel">所属维度</span><div class="dims" id="dims">${dimList().map(d => `<button class="dimbtn ${FORM.dim === d ? 'on' : ''}" data-act="f-dim" data-v="${esc(d)}">${esc(d)}</button>`).join('')}</div></div>
@@ -1345,7 +1385,7 @@ function buildFormHTML() {
         <div class="nums"><b id="est-exp">0</b><span>EXP</span><b id="est-tok">0</b><span>TOKEN</span></div>
         <div class="eq" id="est-eq"></div>
       </div>
-      <button class="btn-primary" data-act="save-new">保存任务</button>
+      <button class="btn-primary" data-act="${EDIT_ID ? 'save-edit' : 'save-new'}">${EDIT_ID ? '保存修改' : '保存任务'}</button>
     </div>`;
 }
 function estTask() {
@@ -1362,12 +1402,30 @@ function updateEst() {
   if (eq) eq.textContent = `${S.settings.baseVals[t.base] ?? 30} × ${S.settings.catW[t.cat]} × ${S.settings.dimW[t.dim] ?? 1.2} × 1.00 × ${(1 + S.settings.slope*(t.prio-3)).toFixed(2)} = ${raw.toFixed(1)} → EXP ${exp} / TOKEN ${tok.toFixed(1)}`;
 }
 function openNew(cat) {
+  EDIT_ID = null;
   FORM.cat = cat || 'side'; FORM.dim = dimList()[0] || '自我提升'; FORM.prio = 3; FORM.base = '30分钟~2小时'; FORM.repeat = 'none';
-  openSheet(buildFormHTML(), () => {
+  openSheet(buildFormHTML(false), () => {
     ['f-name','f-desc','f-base','f-plan','f-due','f-repeat'].forEach(id => {
       const n = document.getElementById(id); if (n) n.addEventListener('input', updateEst);
     });
     const b = document.getElementById('f-base'); if (b) b.addEventListener('change', e => { FORM.base = e.target.value; updateEst(); });
+    updateEst();
+  });
+}
+function openEditTask(id) {
+  const t = S.tasks.find(x => x.id === id); if (!t) return;
+  EDIT_ID = id;
+  FORM.cat = t.cat; FORM.dim = t.dim; FORM.prio = t.prio; FORM.base = t.base; FORM.repeat = t.repeat || 'none';
+  openSheet(buildFormHTML(true), () => {
+    const set = (f, v) => { const n = document.getElementById(f); if (n) n.value = v; };
+    set('f-name', t.name); set('f-desc', t.desc || '');
+    set('f-plan', toLocalInput(t.plan)); set('f-due', toLocalInput(t.due));
+    set('f-repeat', FORM.repeat);
+    ['f-name','f-desc','f-base','f-plan','f-due','f-repeat'].forEach(f => {
+      const n = document.getElementById(f); if (n) n.addEventListener('input', updateEst);
+    });
+    const b = document.getElementById('f-base'); if (b) b.addEventListener('change', e => { FORM.base = e.target.value; updateEst(); });
+    const rp = document.getElementById('f-repeat'); if (rp) rp.addEventListener('change', e => { FORM.repeat = e.target.value; updateEst(); });
     updateEst();
   });
 }
@@ -1378,6 +1436,18 @@ function saveTask() {
   const due = document.getElementById('f-due').value;
   const repeat = FORM.cat === 'daily' ? document.getElementById('f-repeat').value : 'none';
   if (!name) { toast('先写个任务名称'); document.getElementById('f-name').focus(); return; }
+  if (EDIT_ID) {
+    const t = S.tasks.find(x => x.id === EDIT_ID);
+    if (t) {
+      t.name = name; t.desc = desc || null; t.dim = FORM.dim; t.prio = FORM.prio; t.base = FORM.base;
+      t.plan = plan ? new Date(plan).toISOString() : null; t.due = due ? new Date(due).toISOString() : null;
+      t.repeat = repeat;
+    }
+    EDIT_ID = null;
+    save(); renderAll(); closeSheet();
+    toast('任务已更新');
+    return;
+  }
   S.tasks.unshift({
     id: uid(), name, desc, cat: FORM.cat, dim: FORM.dim, prio: FORM.prio, base: FORM.base,
     plan: plan ? new Date(plan).toISOString() : null, due: due ? new Date(due).toISOString() : null,
@@ -1396,9 +1466,12 @@ function openTask(id) {
   const raw = rawReward(t, st, S.combo.streak);
   const done = isDone(t);
   openSheet(`
-    <h3>${esc(t.name)}</h3>
+    <h3 data-long="task" data-id="${t.id}">${esc(t.name)}</h3>
     <div class="sub">${esc(t.desc) || '-'}</div>
-    <div class="facts" style="display:flex;flex-wrap:wrap;gap:6px;margin:12px 0">${chip(t)}<span class="chip">${prioHTML(t.prio)}</span>
+    <div class="facts" style="display:flex;flex-wrap:wrap;gap:6px;margin:12px 0">
+      <span class="chip ${CATS[t.cat].c}">${CATS[t.cat].l}</span>
+      <span class="chip">${esc(t.dim)}</span>
+      <span class="chip">${prioHTML(t.prio)}</span>
       ${t.repeat !== 'none' ? `<span class="chip">${t.repeat === 'weekly' ? '每周' : '每日'}</span>` : ''}
       ${t.plan ? `<span class="chip">计划 ${fmtT(t.plan)}</span>` : ''}${t.due ? `<span class="chip">截止 ${fmtT(t.due)}</span>` : ''}
       <span class="chip">${t.base} 基础</span></div>
@@ -1414,14 +1487,10 @@ function openTask(id) {
           <button class="mini-btn" data-act="sub-save" data-id="${t.id}" data-sub="${s.id}">保存</button>
           <button class="mini-btn" data-act="sub-cancel" data-id="${t.id}">取消</button>
         </div>` : `
-        <div class="subline ${s.done?'done':''}" style="padding:11px 14px">
+        <div class="subline ${s.done?'done':''}" style="padding:11px 14px" data-long="sub" data-id="${t.id}" data-sub="${s.id}">
           <button class="ck ${s.done?'on':''}" data-act="${s.done?'undo-sub':'complete-sub'}" data-id="${t.id}" data-sub="${s.id}">${ICON.check}</button>
           <span>${esc(s.t)}</span>
           <span class="rw">${s.done ? '已完成' : '+' + Math.round(raw * 0.7 / t.subs.length)}</span>
-          <span class="sub-ops">
-            <button class="mini-btn" data-act="sub-edit" data-id="${t.id}" data-sub="${s.id}">改</button>
-            <button class="mini-btn" style="color:var(--red)" data-act="sub-del" data-id="${t.id}" data-sub="${s.id}">删</button>
-          </span>
         </div>`).join('') || '<div class="empty">还没有子任务，在下方添加</div>'}</div>
       <div class="field" style="margin-top:12px"><input id="sub-name" type="text" placeholder="添加子任务，回车确认"></div>` : ''}
     <div class="act-list">
@@ -1435,14 +1504,12 @@ function openTask(id) {
       if (ed) ed.addEventListener('keydown', e => { if (e.key === 'Enter') subSave(t.id, SUBEDIT); });
     });
 }
-function subEdit(id, subId) { SUBEDIT = subId; openTask(id); }
-function subCancel(id) { SUBEDIT = null; openTask(id); }
 function subSave(id, subId) {
   const t = S.tasks.find(x => x.id === id); const s = t && t.subs.find(x => x.id === subId);
   if (!t || !s) return;
   const inp = document.getElementById('sub-edit-name');
   const v = inp ? inp.value.trim() : '';
-  if (!v) { toast('写个子任务名字'); return; }
+  if (!v) { subDel(id, subId); return; }
   s.t = v; SUBEDIT = null;
   save(); renderAll(); openTask(id); toast('子任务已更新');
 }
@@ -1813,11 +1880,8 @@ document.addEventListener('click', e => {
     case 'complete-sub': completeTask(id, sub); if (sheetTask) openTask(sheetTask); break;
     case 'undo-sub': undoTask(id, sub); if (sheetTask) openTask(sheetTask); break;
     case 'open': openTask(id); break;
-    case 'add-sub': addSub(id); break;
-    case 'sub-edit': subEdit(id, sub); break;
     case 'sub-cancel': subCancel(id); break;
     case 'sub-save': subSave(id, sub); break;
-    case 'sub-del': subDel(id, sub); break;
     case 'del': {
       S.tasks = S.tasks.filter(x => x.id !== id);
       S.ledger = S.ledger.filter(l => l.taskId !== id);
@@ -1833,6 +1897,7 @@ document.addEventListener('click', e => {
     case 'f-dim': FORM.dim = v; document.querySelectorAll('#dims .dimbtn').forEach(b => b.classList.toggle('on', b.dataset.v === v)); updateEst(); break;
     case 'f-prio': FORM.prio = +v; document.querySelectorAll('#stars button').forEach(b => b.classList.toggle('on', +b.dataset.v <= +v)); updateEst(); break;
     case 'save-new': saveTask(); break;
+    case 'save-edit': saveTask(); break;
     case 'spend': openSpend(); break;
     case 'sleep-bed': openSleepForm('bed'); break;
     case 'sleep-wake': openSleepForm('wake'); break;
