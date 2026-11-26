@@ -890,7 +890,7 @@ function viewTasks() {
         const total = t.subs.length, done = t.subs.filter(s => s.done).length;
         return `<div class="maincard ${isDone(t) ? 'done' : ''}" data-act="open" data-id="${t.id}">
           <div class="mt"><h3>${esc(t.name)}</h3><span class="pcts">${total ? Math.round(done/total*100) + '%' : '单条'}</span></div>
-          ${total ? `<div class="progress thin"><i style="width:${done/total*100}%"></i></div>` : ''}
+          ${total ? `<div class="progress thin"><i style="width:${Math.round(done/total*100)}%"></i></div>` : ''}
           <div class="meta">${chip(t)}<span class="chip">${t.status === 'done' ? '已完成' : t.status === 'abandoned' ? '已放弃' : '进行中'}</span>${prioHTML(t.prio)}
             <span class="rw">全完成 +${Math.round(rawReward(t, statusOf(t), 0))}</span></div>
         </div>`;
@@ -1133,7 +1133,7 @@ function viewAccount() {
       ${item(ICON.share, '分享网页', '复制链接或调起系统分享', 'share')}
       ${item(ICON.refresh, '检查更新 · 强制刷新', '清掉旧缓存并拉取服务器最新版本', 'force-update')}
     </div>
-    <div class="foot-note">原型数据仅保存在本机浏览器<br>各账号的任务、等级、TOKEN 相互独立<br><span style="color:var(--faint)">构建版本 build 2026-11-26 · v13</span></div>`;
+    <div class="foot-note">原型数据仅保存在本机浏览器<br>各账号的任务、等级、TOKEN 相互独立<br><span style="color:var(--faint)">构建版本 build 2026-11-27 · v14</span></div>`;
 }
 
 /* =============== 导航 / 渲染 / 雷达 =============== */
@@ -1147,6 +1147,23 @@ function fitStage() {
   // 每页自行纵向滚动，容器高度由 flex 布局撑满，这里无需再量高
 }
 function pageScrollEl(v) { return document.getElementById('v-' + v); }
+const barState = new Map();
+function animateBars() {
+  document.querySelectorAll('.progress i').forEach((el, idx) => {
+    const target = el.style.width;
+    const wrap = el.closest('.progress');
+    const card = el.closest('[data-id]');
+    let key;
+    if (wrap && !wrap.classList.contains('thin')) key = 'lv';
+    else if (card) key = 'task-' + card.dataset.id;
+    else key = 'bar-' + idx;
+    const prev = barState.get(key);
+    const kick = () => { requestAnimationFrame(() => requestAnimationFrame(() => { el.style.width = target; })); };
+    if (prev != null && prev !== target) { el.style.width = prev; kick(); }
+    else if (prev == null) { el.style.width = '0%'; kick(); }
+    barState.set(key, target);
+  });
+}
 function renderAll() {
   $('#v-today').innerHTML = viewToday();
   $('#v-tasks').innerHTML = viewTasks();
@@ -1155,6 +1172,7 @@ function renderAll() {
   renderNav();
   if (VIEW === 'growth') drawRadar();
   fitStage();
+  animateBars();
 }
 let chart = null;
 let sleepChart = null;
