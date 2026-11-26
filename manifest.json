@@ -4,8 +4,9 @@
   "description": "个人任务管理 + 游戏化激励：主线支线日常、连击补签、六维雷达、作息打卡。数据仅保存在本机。",
   "lang": "zh-CN",
   "dir": "ltr",
-  "start_url": "/dida-pwa/%E5%98%80%E5%97%92.html",
+  "start_url": "/dida-pwa/",
   "scope": "/dida-pwa/",
+  "id": "/dida-pwa/",
   "display": "standalone",
   "display_override": [
     "standalone",
@@ -49,7 +50,7 @@
     {
       "name": "今日",
       "short_name": "今日",
-      "url": "/dida-pwa/%E5%98%80%E5%97%92.html#today",
+      "url": "/dida-pwa/#today",
       "icons": [
         {
           "src": "/dida-pwa/icon-192.png",
@@ -60,7 +61,7 @@
     {
       "name": "任务",
       "short_name": "任务",
-      "url": "/dida-pwa/%E5%98%80%E5%97%92.html#tasks",
+      "url": "/dida-pwa/#tasks",
       "icons": [
         {
           "src": "/dida-pwa/icon-192.png",
@@ -71,7 +72,7 @@
     {
       "name": "成长",
       "short_name": "成长",
-      "url": "/dida-pwa/%E5%98%80%E5%97%92.html#growth",
+      "url": "/dida-pwa/#growth",
       "icons": [
         {
           "src": "/dida-pwa/icon-192.png",

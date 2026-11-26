@@ -2,12 +2,14 @@
    - 导航请求：网络优先，3 秒超时或失败回落到缓存页面（离线可开）
    - 同源静态资源：缓存优先 + 后台静默更新
    - 跨域资源（字体 / ECharts CDN）：有缓存先给，同时后台刷新
+   仓库已更名为 dida-pwa，站点根路径为 /dida-pwa/，本文件内相对路径均以该目录为基准
 */
-const VERSION = 'v4';
+const VERSION = 'v5';
 const CACHE = 'dida-' + VERSION;
-const APP_PAGE = './%E5%98%80%E5%97%92.html';
+const APP_PAGE = './';
 const CORE = [
-  APP_PAGE,
+  './',
+  './index.html',
   './manifest.json',
   './icon-180.png',
   './icon-192.png',
@@ -98,3 +100,4 @@ self.addEventListener('fetch', evt => {
   // 字体 CDN 的 CSS 带查询串，按 URL 全量匹配
   evt.respondWith(cacheFirst(req));
 });
+//（注：内容由AI生成）
