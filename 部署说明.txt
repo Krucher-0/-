@@ -1,0 +1,33 @@
+嘀嗒 PWA · 部署说明
+====================
+
+一、目录内文件（必须一起上传，缺一个 PWA 就不完整）
+  嘀嗒.html              主程序（单文件，含全部样式与逻辑）
+  manifest.json          应用清单：名称、图标、启动页、standalone 全屏
+  sw.js                  离线缓存服务
+  icon-180.png           iOS 桌面图标（180×180）
+  icon-192.png           安卓 / 桌面图标
+  icon-512.png           高分辨率图标
+  icon-maskable-192.png  安卓自适应图标（已留安全区）
+  icon-maskable-512.png  同上，高分辨率
+
+二、怎么部署（三选一）
+  1) 本地预览：双击 嘀嗒.html 可直接用，但此时没有离线能力（file:// 不支持 Service Worker）。
+  2) 静态托管（推荐 GitHub Pages / Vercel / 任意 HTTPS 静态空间）：
+     把上述 8 个文件整体上传到同一个目录，用 https:// 地址访问。
+     PWA 强制要求 HTTPS（localhost 例外）。
+  3) 手机安装：
+     - 安卓 Chrome：打开网址 → 菜单「安装应用 / 添加到主屏幕」→ 桌面出现嘀嗒图标，全屏打开。
+     - iPhone Safari：打开网址 → 分享 →「添加到主屏幕」。
+
+三、本次改动要点
+  · manifest：start_url 使用百分号编码的中文文件名，any / maskable 图标分开声明，
+    附带「今日 / 任务 / 成长」三个桌面快捷方式。
+  · sw.js：页面走网络优先（3 秒超时回落缓存），静态资源缓存优先 + 后台更新，
+    跨域字体与 ECharts 也会缓存，断网可完整打开。
+  · 主程序：新增 URL hash 同步（#today / #tasks / #growth / #account），
+    快捷方式与浏览器前进后退都能直达对应页；发现新版本自动刷新一次。
+
+四、数据说明
+  所有数据存本机 localStorage，按账号隔离。卸载应用或清除站点数据会丢失，
+  建议定期在「账号 → 数据管理」导出 JSON 备份。
