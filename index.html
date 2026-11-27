@@ -113,7 +113,6 @@ input,select,textarea{font-family:inherit;font-size:16px;color:inherit}
 .lvfoot{display:flex;justify-content:space-between;font-family:var(--mono);font-size:11.5px;color:var(--muted)}
 .lvfoot em{font-style:normal;color:var(--ink)}
 .card{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);overflow:hidden}
-.box{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:16px}
 
 .hint{display:flex;gap:9px;align-items:flex-start;font-size:12.5px;line-height:1.65;padding:11px 13px;border-radius:10px;background:var(--amber-soft);color:var(--amber-text);border:1px solid var(--amber-line);margin-top:12px}
 .hint .dot{width:6px;height:6px;border-radius:50%;background:var(--amber);margin-top:6px;flex:0 0 auto}
@@ -125,6 +124,9 @@ input,select,textarea{font-family:inherit;font-size:16px;color:inherit}
 .tdot.yellow{background:var(--amber)}
 .tdot.red{background:var(--red)}
 .tdot.green{background:var(--green)}
+.dragging{position:relative;z-index:6;opacity:.88;will-change:transform;touch-action:none}
+.drag-placeholder{margin:8px 0;border:1px dashed var(--muted);border-radius:var(--r);background:var(--faint);opacity:.3;flex:none}
+.page.drag-lock{overflow:hidden;touch-action:none}
 .name,.mt h3{display:flex;align-items:center;gap:7px}
 
 .sec{display:flex;align-items:center;gap:10px;margin:24px 0 10px}
@@ -133,7 +135,6 @@ input,select,textarea{font-family:inherit;font-size:16px;color:inherit}
 .sec .rule{flex:1;height:1px;background:var(--line)}
 .sec-head{cursor:pointer;user-select:none}
 .sec-arrow{font-size:11px;color:var(--muted);flex:none;width:16px;text-align:center}
-.sec .act{font-size:12px;color:var(--muted);border-bottom:1px solid var(--line-2);padding-bottom:1px}
 
 /* ===== 任务行 ===== */
 .row{display:flex;gap:12px;align-items:flex-start;padding:13px 14px;border-bottom:1px solid var(--line);background:var(--surface)}
@@ -151,7 +152,6 @@ input,select,textarea{font-family:inherit;font-size:16px;color:inherit}
 .chip.main{background:var(--green-soft);border-color:var(--cyan-line);color:var(--green)}
 .chip.side{background:var(--side-bg);border-color:var(--side-line);color:var(--blue)}
 .chip.daily{background:var(--daily-bg);border-color:var(--daily-line);color:var(--daily-text)}
-.chip.warn{background:var(--amber-soft);border-color:var(--amber-line);color:var(--amber-text)}
 .rw{font-family:var(--mono);font-size:11.5px;color:var(--green);white-space:nowrap;margin-left:auto;padding-left:6px;align-self:center}
 .stars{display:inline-flex;gap:3px;align-items:center;flex:none}
 .stars span{display:grid;place-items:center}
@@ -386,6 +386,7 @@ function sfx(name) {
   else if (name === 'close') tone(460, 380, 0.08, 0.11);
   else if (name === 'reward') { tone(600, 880, 0.16, 0.18); setTimeout(() => tone(880, 1040, 0.12, 0.14), 70); }
   else if (name === 'levelup') { [523, 659, 784, 1046].forEach((f, i) => setTimeout(() => tone(f, f, 0.16, 0.2), i * 110)); }
+  else if (name === 'long') tone(440, 540, 0.07, 0.12);
 }
 document.addEventListener('pointerdown', initAudio, { passive:true });
 const dstr = d => `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
@@ -417,7 +418,7 @@ const DEFAULT_SETTINGS = () => ({
   baseVals:{ '＜30分钟':10, '30分钟~2小时':30, '2小时~半天':80, '半天~1天':150, '1天以上':300 },
   combos:[[0,0],[2,5],[4,12],[8,25],[15,40]],
   comboCap:30, impSlope:0.1, prioSlope:0.1, ratio:0.2, a:0.0648, b:50,
-  overdraft:-50, signCost:30, signQuota:2, resetHour:4, animate:true, sleepEnabled:true, sound:true,
+  overdraft:-50, signCost:30, signQuota:2, resetHour:4, animate:true, sleepEnabled:true, sound:true, dragSort:true,
   sleepGoal:{ bed:'23:00', wake:'07:00' }
 });
 const clone = o => JSON.parse(JSON.stringify(o));
@@ -468,6 +469,7 @@ function normalizeState(d) {
   if (!d.ui || typeof d.ui !== 'object') d.ui = { collapsed:{} };
   if (!d.ui.collapsed || typeof d.ui.collapsed !== 'object') d.ui.collapsed = {};
   if (!d.settings.sleepGoal) d.settings.sleepGoal = { bed:'23:00', wake:'07:00' };
+  if (Array.isArray(d.tasks)) d.tasks.forEach((t, i) => { if (typeof t.ord !== 'number') t.ord = i; });
   return d;
 }
 
@@ -848,6 +850,8 @@ function dotHTML(t) {
   const d = dueDot(t);
   return `<span class="tdot ${d.cls}" title="${esc(d.title)}"></span>`;
 }
+// 同组内按 ord 升序，旧数据 ord 缺失时回退到原始数组顺序
+const byOrd = (a, b) => (a.ord ?? 1e9) - (b.ord ?? 1e9) || S.tasks.indexOf(a) - S.tasks.indexOf(b);
 const IMP_LABEL = ['很低', '较低', '普通', '较高', '极高'];
 const IMP_COLOR = ['var(--faint)', 'var(--blue)', 'var(--ink-2)', 'var(--amber)', 'var(--red)'];
 function impHTML(p) {
@@ -865,18 +869,18 @@ function viewToday() {
   const now = new Date();
   const { total: dsLen, dn } = dailyStats();
   const rate = dailyRate();
-  const mains = S.tasks.filter(t => t.cat === 'main' && !archived(t));
-  const sides = S.tasks.filter(t => t.cat === 'side' && !archived(t));
+  const mains = S.tasks.filter(t => t.cat === 'main' && !archived(t)).sort(byOrd);
+  const sides = S.tasks.filter(t => t.cat === 'side' && !archived(t)).sort(byOrd);
   const sRec = sleepRec();
   const sDone = sleepDoneToday();
   const avg = (rate > 0.8) ? `<div class="hint ok"><span class="dot"></span><span>今日日常完成 ${dn} / ${dsLen}（${Math.round(rate*100)}%），已达标</span></div>`
     : `<div class="hint"><span class="dot"></span><span>今日日常完成 ${dn} / ${dsLen}（${Math.round(rate*100)}%），未到 80%</span></div>`;
-  const ds = daily();
+  const ds = daily().sort(byOrd);
   const rowsDaily = ds.map(t => {
     const done = isDone(t);
     const raw = rawReward(t, statusOf(t), S.combo.streak);
     return `
-    <div class="row ${done ? 'done' : ''}">
+    <div class="row ${done ? 'done' : ''}" data-drag="task" data-id="${t.id}">
       <button class="ck ${done ? 'on' : ''}" data-act="${done ? 'undo' : 'complete'}" data-id="${t.id}" aria-label="完成">${ICON.check}</button>
       <div class="grow" data-act="open" data-id="${t.id}">
         <div class="name">${dotHTML(t)}${esc(t.name)}</div>
@@ -893,7 +897,7 @@ function viewToday() {
         <span>${esc(s.t)}</span>
         ${s.done ? '' : `<span class="rw">+${Math.round(rawReward(t, statusOf(t), 0) * 0.7 / total)}</span>`}
       </div>`).join('');
-    return `<div class="maincard ${isDone(t) ? 'done' : ''}" data-act="open" data-id="${t.id}">
+    return `<div class="maincard ${isDone(t) ? 'done' : ''}" data-act="open" data-id="${t.id}" data-drag="task">
       <div class="mt"><h3>${dotHTML(t)}${esc(t.name)}</h3><span class="pcts">${total ? done + ' / ' + total : ''}</span></div>
       ${total ? `<div class="progress thin"><i style="width:${pct}%"></i></div>` : ''}
       ${subs}
@@ -904,7 +908,7 @@ function viewToday() {
     const done = isDone(t);
     const raw = rawReward(t, statusOf(t), 0);
     return `
-    <div class="row ${done ? 'done' : ''}">
+    <div class="row ${done ? 'done' : ''}" data-drag="task" data-id="${t.id}">
       <button class="ck ${done ? 'on' : ''}" data-act="${done ? 'undo' : 'complete'}" data-id="${t.id}">${ICON.check}</button>
       <div class="grow" data-act="open" data-id="${t.id}">
         <div class="name">${dotHTML(t)}${esc(t.name)}</div>
@@ -950,13 +954,13 @@ function viewTasks() {
   const list = S.tasks.filter(t => FILTER === 'all' || t.cat === FILTER);
   const active = list.filter(t => !archived(t));
   const groups = ['main','side','daily'].map(cat => {
-    const items = active.filter(t => t.cat === cat);
+    const items = active.filter(t => t.cat === cat).sort(byOrd);
     if (!items.length) return '';
     let body = '';
     if (cat === 'main' || cat === 'side') {
       body = items.map(t => {
         const total = t.subs.length, done = t.subs.filter(s => s.done).length;
-        return `<div class="maincard ${isDone(t) ? 'done' : ''}" data-act="open" data-id="${t.id}">
+        return `<div class="maincard ${isDone(t) ? 'done' : ''}" data-act="open" data-id="${t.id}" data-drag="task">
           <div class="mt"><h3>${dotHTML(t)}${esc(t.name)}</h3><span class="pcts">${total ? Math.round(done/total*100) + '%' : '单条'}</span></div>
           ${total ? `<div class="progress thin"><i style="width:${Math.round(done/total*100)}%"></i></div>` : ''}
           <div class="meta">${chip(t)}<span class="chip">${t.status === 'done' ? '已完成' : t.status === 'abandoned' ? '已放弃' : '进行中'}</span>${impHTML(t.importance)}${prioHTML(t.prio)}
@@ -968,7 +972,7 @@ function viewTasks() {
         const done = isDone(t);
         const raw = rawReward(t, statusOf(t), S.combo.streak);
         return `
-        <div class="row ${done ? 'done' : ''}">
+        <div class="row ${done ? 'done' : ''}" data-drag="task" data-id="${t.id}">
           <button class="ck ${done ? 'on' : ''}" data-act="${done ? 'undo' : 'complete'}" data-id="${t.id}">${ICON.check}</button>
           <div class="grow" data-act="open" data-id="${t.id}">
             <div class="name">${dotHTML(t)}${esc(t.name)}</div>
@@ -1211,9 +1215,6 @@ function renderNav() {
   nav.innerHTML = `<div class="navin">` + NAV.map(([k, ic, lb]) =>
     `<button class="${VIEW === k ? 'on' : ''}" data-act="view" data-v="${k}">${ic}<span class="lbl">${lb}</span></button>`).join('') + `</div>`;
 }
-function fitStage() {
-  // 每页自行纵向滚动，容器高度由 flex 布局撑满，这里无需再量高
-}
 function pageScrollEl(v) { return document.getElementById('v-' + v); }
 const barState = new Map();
 function animateBars() {
@@ -1239,7 +1240,6 @@ function renderAll() {
   $('#v-account').innerHTML = viewAccount();
   renderNav();
   if (VIEW === 'growth') drawRadar();
-  fitStage();
   animateBars();
 }
 let chart = null;
@@ -1281,7 +1281,7 @@ function drawRadar() {
       formatter: p => dims.map((d,i) => `${d} ${expBy[i]} EXP`).join('<br/>') }
   });
 }
-window.addEventListener('resize', () => { if (VIEW === 'growth') setTimeout(drawRadar, 120); fitStage(); });
+window.addEventListener('resize', () => { if (VIEW === 'growth') setTimeout(drawRadar, 120); });
 
 function setView(v, instant) {
   const idx = ORDER.indexOf(v);
@@ -1290,16 +1290,10 @@ function setView(v, instant) {
   VIEW = v;
   const w = stage.clientWidth || window.innerWidth;
   const x = -idx * w;
-  if (instant || !S.settings.animate) {
-    track.classList.add('no-anim');
-    track.style.transform = `translate3d(${x}px,0,0)`;
-  } else {
-    track.classList.remove('no-anim');
-    track.style.transform = `translate3d(${x}px,0,0)`;
-  }
+  track.classList.toggle('no-anim', instant || !S.settings.animate);
+  track.style.transform = `translate3d(${x}px,0,0)`;
   if (v === 'growth') setTimeout(drawRadar, 30);
   renderNav();
-  fitStage();
   // 切页时把该页自身的滚动位置归零
   const pe = pageScrollEl(v);
   if (pe && !wasSame) { try { pe.scrollTop = 0; } catch (e) {} }
@@ -1351,12 +1345,17 @@ window.addEventListener('mouseup', e => {
   swipeEnd(e.clientX, e.clientY);
 });
 
-/* 长按进入编辑（任务标题/描述、子任务） */
-let lpTimer = null, lpStart = null;
-function lpClear() { if (lpTimer) clearTimeout(lpTimer); lpTimer = null; lpStart = null; }
+/* 长按：详情内长按标题/子任务唤起编辑；首页列表长按后竖向拖动进入同组排序 */
+const LP_DELAY = 960;
+let lpTimer = null, lpStart = null, armed = false, drag = null, suppressClick = false;
+function lpClear() { if (lpTimer) clearTimeout(lpTimer); lpTimer = null; lpStart = null; armed = false; }
 function lpStartPress(x, y, el) {
-  lpStart = { x, y };
-  lpTimer = setTimeout(() => { lpTimer = null; fireLongPress(el); }, 480);
+  lpStart = { x, y, el }; armed = false;
+  lpTimer = setTimeout(() => {
+    lpTimer = null; sfx('long');
+    if (el.dataset.long) fireLongPress(el);
+    else if (el.dataset.drag === 'task') armed = true;
+  }, LP_DELAY);
 }
 function fireLongPress(el) {
   const kind = el.dataset.long, id = el.dataset.id, sub = el.dataset.sub;
@@ -1364,28 +1363,84 @@ function fireLongPress(el) {
   else if (kind === 'sub') { SUBEDIT = sub; openTask(id); }
 }
 function lpTarget(e) {
-  const el = e.target.closest && e.target.closest('[data-long]');
+  const el = e.target.closest && e.target.closest('[data-long],[data-drag]');
   if (!el || e.target.closest('button,.ck')) return null;
   return el;
+}
+function dragItems(container) { return [...container.children].filter(c => c.dataset && c.dataset.drag === 'task'); }
+function beginDrag(el, startY) {
+  if (!el || el.dataset.drag !== 'task' || S.settings.dragSort === false) return;
+  if (el.closest('.sheet')) return;
+  const container = el.closest('.card') || el.parentElement;
+  const rect = el.getBoundingClientRect();
+  const base = dragItems(container).filter(e => e !== el).map(it => { const r = it.getBoundingClientRect(); return { it, top: r.top, height: r.height }; });
+  const ph = document.createElement('div');
+  ph.className = 'drag-placeholder'; ph.style.height = rect.height + 'px';
+  container.insertBefore(ph, el);
+  el.classList.add('dragging');
+  const scrollPage = el.closest('.page'); if (scrollPage) scrollPage.classList.add('drag-lock');
+  drag = { el, container, ph, startY, base, scrollPage, moved: false };
+}
+function moveDrag(y) {
+  if (!drag) return;
+  const dy = y - drag.startY;
+  if (Math.abs(dy) > 4) drag.moved = true;
+  drag.el.style.transform = `translateY(${dy}px)`;
+  let after = null;
+  for (const b of drag.base) { if (y < b.top + b.height / 2) { after = b.it; break; } }
+  const cur = drag.ph.nextElementSibling;
+  if (after) { if (cur !== after) drag.container.insertBefore(drag.ph, after); }
+  else if (drag.ph !== drag.container.lastElementChild) drag.container.appendChild(drag.ph);
+}
+function endDrag() {
+  if (!drag) return;
+  if (drag.moved) {
+    const final = [];
+    [...drag.container.children].forEach(ch => {
+      if (ch === drag.el) return;
+      if (ch === drag.ph) final.push(drag.el.dataset.id);
+      else if (ch.dataset && ch.dataset.id) final.push(ch.dataset.id);
+    });
+    const byId = Object.fromEntries(S.tasks.map(t => [t.id, t]));
+    final.forEach((id, i) => { const t = byId[id]; if (t) t.ord = i; });
+    suppressClick = true; setTimeout(() => { suppressClick = false; }, 150);
+    save(); renderAll();
+  }
+  drag.el.classList.remove('dragging');
+  drag.el.style.transform = '';
+  if (drag.scrollPage) drag.scrollPage.classList.remove('drag-lock');
+  drag.ph.remove();
+  drag = null;
 }
 document.addEventListener('touchstart', e => {
   const el = lpTarget(e); if (!el) return;
   lpStartPress(e.touches[0].clientX, e.touches[0].clientY, el);
 }, { passive: true });
 document.addEventListener('touchmove', e => {
-  if (!lpTimer) return;
+  if (drag) { moveDrag(e.touches[0].clientY); e.preventDefault(); return; }
+  if (!lpStart) return;
   const t = e.touches[0];
-  if (Math.abs(t.clientX - lpStart.x) > 10 || Math.abs(t.clientY - lpStart.y) > 10) lpClear();
-}, { passive: true });
-document.addEventListener('touchend', lpClear);
-document.addEventListener('touchcancel', lpClear);
+  const vy = t.clientY - lpStart.y, vx = t.clientX - lpStart.x;
+  if (armed) {
+    e.preventDefault();
+    if (Math.abs(vy) > 14 && Math.abs(vy) > Math.abs(vx)) { const el = lpStart.el, sy = lpStart.y; lpClear(); beginDrag(el, sy); moveDrag(t.clientY); }
+  } else if (Math.abs(vx) > 10 || Math.abs(vy) > 10) lpClear();
+}, { passive: false });
+document.addEventListener('touchend', () => { endDrag(); lpClear(); });
+document.addEventListener('touchcancel', () => { endDrag(); lpClear(); });
 document.addEventListener('mousedown', e => {
   if (e.button !== 0) return;
   const el = lpTarget(e); if (!el) return;
   lpStartPress(e.clientX, e.clientY, el);
 });
-document.addEventListener('mouseup', lpClear);
-document.addEventListener('mouseleave', lpClear);
+document.addEventListener('mousemove', e => {
+  if (drag) { moveDrag(e.clientY); return; }
+  if (!lpStart) return;
+  const vy = e.clientY - lpStart.y, vx = e.clientX - lpStart.x;
+  if (armed && Math.abs(vy) > 14 && Math.abs(vy) > Math.abs(vx)) { const el = lpStart.el, sy = lpStart.y; lpClear(); beginDrag(el, sy); moveDrag(e.clientY); }
+});
+document.addEventListener('mouseup', () => { endDrag(); lpClear(); });
+document.addEventListener('mouseleave', () => { endDrag(); lpClear(); });
 document.addEventListener('contextmenu', e => {
   if (e.target.closest && e.target.closest('input,select,textarea,[contenteditable]')) return;
   e.preventDefault();
@@ -1534,10 +1589,11 @@ function saveTask() {
     toast('任务已更新');
     return;
   }
+  const catMax = S.tasks.reduce((m, x) => x.cat === FORM.cat && typeof x.ord === 'number' ? Math.max(m, x.ord) : m, -1);
   S.tasks.unshift({
     id: uid(), name, desc, cat: FORM.cat, dim: FORM.dim, importance: FORM.imp, prio: FORM.prio, base: FORM.base,
     plan: plan ? new Date(plan).toISOString() : null, due: due ? new Date(due).toISOString() : null,
-    repeat, subs: [], count: 0, doneAt: null, lastDoneDay: null, status: 'todo'
+    repeat, ord: catMax + 1, subs: [], count: 0, doneAt: null, lastDoneDay: null, status: 'todo'
   });
   EDIT_DRAFT = null; DRAFT_LOCK = true;
   save(); renderAll(); closeSheet();
@@ -1993,6 +2049,7 @@ function openSettingsData() {
 
 /* =============== 事件 =============== */
 document.addEventListener('click', e => {
+  if (suppressClick) { suppressClick = false; return; }
   const el = e.target.closest('[data-act]');
   if (!el) return;
   const act = el.dataset.act, id = el.dataset.id, sub = el.dataset.sub, v = el.dataset.v;
@@ -2108,7 +2165,7 @@ document.addEventListener('click', e => {
     case 'settings-dims': openSettingsDims(); break;
     case 'settings-basic': openSettingsBasic(); break;
     case 'settings-data': openSettingsData(); break;
-    case 'toggle-anim': S.settings.animate = !S.settings.animate; el.classList.toggle('on', S.settings.animate); break;
+    case 'toggle-anim': S.settings.animate = !S.settings.animate; el.classList.toggle('on', S.settings.animate); track.classList.toggle('no-anim', !S.settings.animate); save(); break;
     case 'toggle-theme': {
       applyTheme(currentTheme() === 'dark' ? 'light' : 'dark');
       if (VIEW === 'growth') setTimeout(drawRadar, 30);
