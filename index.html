@@ -124,6 +124,8 @@ input,select,textarea{font-family:inherit;font-size:16px;color:inherit}
 .tdot.yellow{background:var(--amber)}
 .tdot.red{background:var(--red)}
 .tdot.green{background:var(--green)}
+.pull-tip{position:fixed;top:10px;left:50%;transform:translateX(-50%) translateY(-12px);z-index:80;padding:7px 16px;border-radius:999px;background:var(--surface);border:1px solid var(--line);box-shadow:0 6px 20px rgba(0,0,0,.14);font-size:12.5px;color:var(--ink-2);opacity:0;pointer-events:none;transition:opacity .18s ease,transform .18s ease;white-space:nowrap}
+.pull-tip.show{opacity:1;transform:translateX(-50%) translateY(0)}
 .dragging{position:relative;z-index:6;opacity:.88;will-change:transform;touch-action:none}
 .drag-placeholder{margin:8px 0;border:1px dashed var(--muted);border-radius:var(--r);background:var(--faint);opacity:.3;flex:none}
 .page.drag-lock{overflow:hidden;touch-action:none}
@@ -848,7 +850,17 @@ function dueDot(t) {
 }
 function dotHTML(t) {
   const d = dueDot(t);
-  return `<span class="tdot ${d.cls}" title="${esc(d.title)}"></span>`;
+  return `<span class="tdot ${d.cls}" data-dot="${t.id}" title="${esc(d.title)}"></span>`;
+}
+// 只原地更新已渲染圆点的颜色与悬浮文案，不重建列表、不丢折叠/滚动状态
+function refreshDots() {
+  document.querySelectorAll('.tdot[data-dot]').forEach(el => {
+    const t = S.tasks.find(x => x.id === el.dataset.dot);
+    if (!t) return;
+    const d = dueDot(t);
+    el.className = 'tdot ' + d.cls;
+    el.title = d.title;
+  });
 }
 // 同组内按 ord 升序，旧数据 ord 缺失时回退到原始数组顺序
 const byOrd = (a, b) => (a.ord ?? 1e9) - (b.ord ?? 1e9) || S.tasks.indexOf(a) - S.tasks.indexOf(b);
@@ -1292,6 +1304,8 @@ function setView(v, instant) {
   const x = -idx * w;
   track.classList.toggle('no-anim', instant || !S.settings.animate);
   track.style.transform = `translate3d(${x}px,0,0)`;
+  // 切页（含底部导航、左右滑动、hash 前进后退）时按当前时间重算时限圆点
+  if (!instant) refreshDots();
   if (v === 'growth') setTimeout(drawRadar, 30);
   renderNav();
   // 切页时把该页自身的滚动位置归零
@@ -1445,6 +1459,41 @@ document.addEventListener('contextmenu', e => {
   if (e.target.closest && e.target.closest('input,select,textarea,[contenteditable]')) return;
   e.preventDefault();
 });
+
+/* =============== 下拉刷新：当前页在顶部时下拉，松手重算时限圆点 =============== */
+const pullTip = document.createElement('div');
+pullTip.className = 'pull-tip';
+pullTip.textContent = '下拉刷新';
+document.body.appendChild(pullTip);
+let pull = null;
+const PULL_THRESHOLD = 64;
+document.addEventListener('touchstart', e => {
+  if (drag || mask.classList.contains('on')) return;
+  if (e.target.closest && e.target.closest('input,select,textarea,[contenteditable],button,.ck')) return;
+  const p = pageScrollEl(VIEW);
+  if (p && p.scrollTop <= 0) pull = { y: e.touches[0].clientY, dy: 0, p };
+}, { passive: true });
+document.addEventListener('touchmove', e => {
+  if (!pull || drag) return;
+  const dy = e.touches[0].clientY - pull.y;
+  if (dy <= 0) { pull.dy = 0; pullTip.classList.remove('show'); return; }
+  if (pull.p.scrollTop > 0) { pull = null; pullTip.classList.remove('show'); return; }
+  pull.dy = dy;
+  if (dy > 8) {
+    e.preventDefault();
+    pullTip.classList.add('show');
+    pullTip.textContent = dy >= PULL_THRESHOLD ? '松开刷新' : '下拉刷新';
+  }
+}, { passive: false });
+function pullEnd() {
+  if (!pull) return;
+  const dy = pull.dy;
+  pull = null;
+  pullTip.classList.remove('show');
+  if (dy >= PULL_THRESHOLD) { refreshDots(); toast('时限状态已刷新'); }
+}
+document.addEventListener('touchend', pullEnd);
+document.addEventListener('touchcancel', pullEnd);
 
 /* =============== 弹层 =============== */
 const mask = $('#mask'), sheet = $('#sheet');
