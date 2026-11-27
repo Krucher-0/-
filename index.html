@@ -146,9 +146,6 @@ input,select,textarea{font-family:inherit;font-size:16px;color:inherit}
 .chip.daily{background:var(--daily-bg);border-color:var(--daily-line);color:var(--daily-text)}
 .chip.warn{background:var(--amber-soft);border-color:var(--amber-line);color:var(--amber-text)}
 .rw{font-family:var(--mono);font-size:11.5px;color:var(--green);white-space:nowrap;margin-left:auto;padding-left:6px;align-self:center}
-.prio{display:flex;gap:3px;align-items:center}
-.prio i{width:5px;height:5px;border-radius:50%;border:1px solid var(--line-2)}
-.prio i.f{background:var(--ink-2);border-color:var(--ink-2)}
 .stars{display:inline-flex;gap:3px;align-items:center;flex:none}
 .stars span{display:grid;place-items:center}
 .stars button{width:24px;height:24px;display:grid;place-items:center;border:0;background:none;padding:0}
@@ -302,7 +299,6 @@ input.plain-inp:focus{border-color:var(--green)}
 .acct-row .mini-btn{margin-left:8px}
 .hist-day{font-size:12px;font-weight:700;color:var(--muted);letter-spacing:.08em;margin:16px 4px 8px}
 .hist-day:first-child{margin-top:6px}
-.hist-empty{padding:26px 16px;text-align:center;font-size:13px;color:var(--faint)}
 
 .toast{position:fixed;left:50%;bottom:calc(92px + env(safe-area-inset-bottom));transform:translate(-50%,10px);background:var(--surface-2);color:var(--ink);border:1px solid var(--line-2);font-size:13px;padding:10px 16px;border-radius:20px;z-index:80;opacity:0;pointer-events:none;transition:opacity .2s,transform .2s;max-width:86vw;text-align:center}
 .toast.on{opacity:1;transform:translate(-50%,0)}
@@ -725,7 +721,7 @@ function settleMain(t) {
     const bExp = Math.round(total * 0.3), bTok = tokenOf(total * 0.3);
     addExp(bExp); S.tokens += bTok; t.count++;
     expAll += bExp; tokAll += bTok;
-    log('earn', t.name + ' · 主线完成补发', bExp, bTok, t.id);
+    log('earn', t.name + ' · ' + CATS[t.cat].l + '完成补发', bExp, bTok, t.id);
   }
   return { exp: expAll, tok: tokAll };
 }
@@ -746,10 +742,10 @@ function completeTask(id, subId) {
       if (!bonusExist) {
         bExp = Math.round(total * 0.3); bTok = tokenOf(total * 0.3);
         addExp(bExp); S.tokens += bTok; t.count++;
-        log('earn', t.name + ' · 主线完成补发', bExp, bTok, t.id);
+        log('earn', t.name + ' · ' + CATS[t.cat].l + '完成补发', bExp, bTok, t.id);
       }
       t.status = 'done'; t.doneAt = new Date().toISOString();
-      toast(`主线完成，补发 +${bExp} EXP / +${bTok} TOKEN`);
+      toast(`${CATS[t.cat].l}完成，补发 +${bExp} EXP / +${bTok} TOKEN`);
     } else toast(`+${expPart} EXP / +${tokenPart} TOKEN`);
     sfx('complete');
     save(); renderAll(); checkLevelUp(); return;
@@ -757,7 +753,7 @@ function completeTask(id, subId) {
   if (t.cat === 'daily') { if (t.lastDoneDay === appDay()) return; t.lastDoneDay = appDay(); }
   else { if (t.status === 'done') return; }
   let res;
-  if (t.cat === 'main') {
+  if (t.cat === 'main' || t.cat === 'side') {
     res = settleMain(t);
     t.status = 'done'; t.doneAt = new Date().toISOString();
   } else {
@@ -929,7 +925,7 @@ function viewTasks() {
     const items = active.filter(t => t.cat === cat);
     if (!items.length) return '';
     let body = '';
-    if (cat === 'main') {
+    if (cat === 'main' || cat === 'side') {
       body = items.map(t => {
         const total = t.subs.length, done = t.subs.filter(s => s.done).length;
         return `<div class="maincard ${isDone(t) ? 'done' : ''}" data-act="open" data-id="${t.id}">
@@ -1177,7 +1173,7 @@ function viewAccount() {
       ${item(ICON.share, '分享网页', '复制链接或调起系统分享', 'share')}
       ${item(ICON.refresh, '检查更新 · 强制刷新', '清掉旧缓存并拉取服务器最新版本', 'force-update')}
     </div>
-    <div class="foot-note">原型数据仅保存在本机浏览器<br>各账号的任务、等级、TOKEN 相互独立<br><span style="color:var(--faint)">嘀嗒 v2.1.1</span></div>`;
+    <div class="foot-note">原型数据仅保存在本机浏览器<br>各账号的任务、等级、TOKEN 相互独立<br><span style="color:var(--faint)">嘀嗒 v2.1.2</span></div>`;
 }
 
 /* =============== 导航 / 渲染 / 雷达 =============== */
@@ -1259,7 +1255,6 @@ function drawRadar() {
 }
 window.addEventListener('resize', () => { if (VIEW === 'growth') setTimeout(drawRadar, 120); fitStage(); });
 
-let viewScrolling = false;
 function setView(v, instant) {
   const idx = ORDER.indexOf(v);
   if (idx < 0) return;
@@ -1426,7 +1421,7 @@ function buildFormHTML(isEdit) {
 }
 function estTask() {
   const nameEl = document.getElementById('f-name');
-  return { name: nameEl ? nameEl.value : '', cat: FORM.cat, dim: FORM.dim, imp: FORM.imp, prio: FORM.prio, base: FORM.base, repeat: FORM.repeat };
+  return { name: nameEl ? nameEl.value : '', cat: FORM.cat, dim: FORM.dim, importance: FORM.imp, prio: FORM.prio, base: FORM.base, repeat: FORM.repeat };
 }
 function updateEst() {
   const t = estTask();
@@ -1435,7 +1430,7 @@ function updateEst() {
   const e1 = document.getElementById('est-exp'), e2 = document.getElementById('est-tok'), eq = document.getElementById('est-eq');
   if (e1) e1.textContent = exp;
   if (e2) e2.textContent = tok.toFixed(1);
-  if (eq) eq.textContent = `${S.settings.baseVals[t.base] ?? 30} × ${S.settings.catW[t.cat]} × ${S.settings.dimW[t.dim] ?? 1.2} × 1.00 × ${(1 + S.settings.impSlope*(t.imp-3)).toFixed(2)} × ${(1 + S.settings.prioSlope*(t.prio-3)).toFixed(2)} = ${raw.toFixed(1)} → EXP ${exp} / TOKEN ${tok.toFixed(1)}`;
+  if (eq) eq.textContent = `${S.settings.baseVals[t.base] ?? 30} × ${S.settings.catW[t.cat]} × ${S.settings.dimW[t.dim] ?? 1.2} × 1.00 × ${(1 + S.settings.impSlope*((t.importance ?? 3)-3)).toFixed(2)} × ${(1 + S.settings.prioSlope*(t.prio-3)).toFixed(2)} = ${raw.toFixed(1)} → EXP ${exp} / TOKEN ${tok.toFixed(1)}`;
 }
 function openNew(cat) {
   EDIT_ID = null;
@@ -1539,7 +1534,7 @@ function openTask(id) {
       <div class="nums"><b>${Math.round(raw)}</b><span>EXP</span><b>${tokenOf(raw).toFixed(1)}</b><span>TOKEN</span></div>
       <div class="eq">基础 ${S.settings.baseVals[t.base] ?? 30} × ${S.settings.catW[t.cat]} × ${S.settings.dimW[t.dim] ?? 1.2} × ${S.settings.statW[st]} × ${(1 + S.settings.impSlope*((t.importance ?? 3)-3)).toFixed(2)} × ${(1 + S.settings.prioSlope*(t.prio-3)).toFixed(2)}${t.cat === 'daily' ? ' + 连击 ' + comboBonus(S.combo.streak) : ''}</div>
     </div>
-    ${t.cat === 'main' ? `<div class="sec" style="margin:16px 0 6px"><h2>子任务管理</h2><span class="rule"></span><span class="count">${t.subs.filter(s=>s.done).length}/${t.subs.length}</span></div>
+    ${(t.cat === 'main' || t.cat === 'side') ? `<div class="sec" style="margin:16px 0 6px"><h2>子任务管理</h2><span class="rule"></span><span class="count">${t.subs.filter(s=>s.done).length}/${t.subs.length}</span></div>
       <div class="card">${t.subs.map(s => SUBEDIT === s.id ? `
         <div class="sub-edit-row">
           <input id="sub-edit-name" type="text" maxlength="30" value="${esc(s.t)}">
@@ -1580,7 +1575,7 @@ function subDel(id, subId) {
     t.count = Math.max(0, t.count - 1);
   }
   t.subs = t.subs.filter(x => x.id !== subId);
-  const bonus = S.ledger.find(l => l.kind === 'earn' && l.taskId === id && l.label.includes('主线完成补发'));
+  const bonus = S.ledger.find(l => l.kind === 'earn' && l.taskId === id && l.label.includes('完成补发'));
   if (bonus && t.subs.some(x => !x.done)) {
     subExp(bonus.exp); S.tokens -= bonus.token;
     S.ledger = S.ledger.filter(l => l.id !== bonus.id);
@@ -1876,7 +1871,47 @@ function openSettingsReward() {
       ${row('补签价格（TOKEN）', set.signCost, 'signCost', '1')}
       ${row('每月补签次数', set.signQuota, 'signQuota', '1')}
     </div>
-    <div class="act-list"><button class="solid" data-act="save-reward">保存参数</button></div>`);
+    <div class="act-list" style="display:flex;gap:10px">
+      <button data-act="show-formula" style="flex:1;justify-content:center">查看计分公式</button>
+      <button class="solid" data-act="save-reward" style="flex:1">保存参数</button>
+    </div>`);
+}
+function openRewardFormula() {
+  const set = S.settings;
+  const g = set.sleepGoal || { bed:'23:00', wake:'07:00' };
+  const baseText = BASE_LABELS.map(l => `${l} ${set.baseVals[l]}`).join('、');
+  const dimText = dimList().map(d => `${esc(d)} ${set.dimW[d]}`).join('、');
+  const comboText = set.combos.map(([from, add]) => `${from}天 +${add}`).join('、');
+  openSheet(`
+    <h3>计分公式说明</h3>
+    <div class="sub">按当前参数核算；改参数只影响后续奖励，历史记录不回算。</div>
+    <div style="margin-top:12px;display:flex;flex-direction:column;gap:11px;font-size:12.5px;line-height:1.65">
+      <div>
+        <div class="flabel" style="margin:0 0 3px">任务奖励</div>
+        <div>EXP = round(基础值 × 分类权重 × 维度权重 × 状态系数 × 重要度系数 × 优先度系数)，日常再加连击加成；TOKEN = EXP × ${set.ratio}。</div>
+      </div>
+      <div>
+        <div class="flabel" style="margin:0 0 3px">系数取值</div>
+        <div>基础值：${baseText}<br>分类：主线 ${set.catW.main}、支线 ${set.catW.side}、日常 ${set.catW.daily}<br>维度：${dimText}<br>状态：提前 ${set.statW.early}、按时 ${set.statW.on}、延期 ${set.statW.late}、逾期 ${set.statW.over}</div>
+      </div>
+      <div>
+        <div class="flabel" style="margin:0 0 3px">重要度 / 优先度系数</div>
+        <div>系数 = 1 + 斜率 ×（档位 − 3）；重要度斜率 ${set.impSlope}，优先度斜率 ${set.prioSlope}。档位：1 很低、2 较低、3 普通、4 较高、5 极高。</div>
+      </div>
+      <div>
+        <div class="flabel" style="margin:0 0 3px">子任务（主线 / 支线）</div>
+        <div>每子任务 ≈ 总奖励 × 70% ÷ 子任务数；全部完成补发 总奖励 × 30%；撤销按原记录回收。</div>
+      </div>
+      <div>
+        <div class="flabel" style="margin:0 0 3px">作息打卡</div>
+        <div>按日常伪任务（健康 · ＜30分钟 · 按时）奖励 × 作息系数。目标 ${g.bed} 入睡 / ${g.wake} 起床：入睡不晚于目标且起床不早于目标 = 1.0；仅一项差 30 分钟内 = 0.7；其余 = 0.4。</div>
+      </div>
+      <div>
+        <div class="flabel" style="margin:0 0 3px">连击与等级</div>
+        <div>连击档位：${comboText}，超 ${set.comboCap} 天封顶；升级所需 EXP = round(${set.a} × (Lv + ${set.b})²)，TOKEN 不升级。</div>
+      </div>
+    </div>
+    <div class="act-list"><button class="solid" data-act="close-sheet" style="justify-content:center">关闭</button></div>`);
 }
 function openSettingsDims() {
   const rows = dimList().map((d, i) => `
@@ -2044,6 +2079,8 @@ document.addEventListener('click', e => {
       if (document.getElementById('sleep-chart')) renderSleepChart();
       openSettingsBasic(); break;
     }
+    case 'show-formula': openRewardFormula(); break;
+    case 'close-sheet': closeSheet(); break;
     case 'save-reward': {
       document.querySelectorAll('[data-path]').forEach(inp => {
         const parts = inp.dataset.path.split('.');
