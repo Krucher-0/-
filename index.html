@@ -120,6 +120,13 @@ input,select,textarea{font-family:inherit;font-size:16px;color:inherit}
 .hint.ok{background:var(--green-soft);color:var(--cyan-text);border-color:var(--cyan-line)}
 .hint.ok .dot{background:var(--green)}
 
+.tdot{width:8px;height:8px;border-radius:50%;flex:0 0 auto;align-self:center}
+.tdot.gray{background:var(--faint)}
+.tdot.yellow{background:var(--amber)}
+.tdot.red{background:var(--red)}
+.tdot.green{background:var(--green)}
+.name,.mt h3{display:flex;align-items:center;gap:7px}
+
 .sec{display:flex;align-items:center;gap:10px;margin:24px 0 10px}
 .sec h2{margin:0;font-size:13px;font-weight:700;letter-spacing:.12em}
 .sec .count{font-family:var(--mono);font-size:11.5px;color:var(--faint)}
@@ -400,6 +407,8 @@ const fmtT = iso => { if (!iso) return ''; const d = new Date(iso); return `${pa
 
 const CATS = { main:{l:'主线',c:'main'}, side:{l:'支线',c:'side'}, daily:{l:'日常',c:'daily'} };
 const BASE_LABELS = ['＜30分钟','30分钟~2小时','2小时~半天','半天~1天','1天以上'];
+// 各预计耗时档位对应的估算用时（分钟），用于按「预计用时 / 剩余时间」判断紧迫度
+const EST_MIN = { '＜30分钟':25, '30分钟~2小时':75, '2小时~半天':210, '半天~1天':480, '1天以上':1200 };
 
 const DEFAULT_SETTINGS = () => ({
   catW:{ main:3, side:1.8, daily:1 },
@@ -818,6 +827,27 @@ const ICON = {
 function chip(t) {
   return `<span class="chip ${CATS[t.cat].c}">${CATS[t.cat].l}</span><span class="chip">${esc(t.dim)}</span>`;
 }
+function fmtRemain(min) {
+  if (min < 60) return `${Math.max(1, Math.round(min))} 分钟`;
+  if (min < 1440) return `${Math.round(min / 60)} 小时`;
+  return `${Math.round(min / 1440)} 天`;
+}
+// 时限提示点：绿=已完成/充裕，黄=偏紧，红=不足/逾期，灰=未设截止
+function dueDot(t) {
+  if (isDone(t) || archived(t)) return { cls:'green', title:'已完成' };
+  if (!t.due) return { cls:'gray', title:'未设截止时间' };
+  const remainMin = (new Date(t.due) - new Date()) / 60000;
+  if (remainMin <= 0) return { cls:'red', title:'已逾期' };
+  const estMin = EST_MIN[t.base] ?? 30;
+  const ratio = estMin / remainMin; // 预计用时占剩余时间的比例
+  if (ratio >= 1) return { cls:'red', title:`时间不足：预计 ${fmtRemain(estMin)}，剩余 ${fmtRemain(remainMin)}` };
+  if (ratio >= 0.5) return { cls:'yellow', title:`时间偏紧：预计 ${fmtRemain(estMin)}，剩余 ${fmtRemain(remainMin)}` };
+  return { cls:'green', title:`时间充裕：预计 ${fmtRemain(estMin)}，剩余 ${fmtRemain(remainMin)}` };
+}
+function dotHTML(t) {
+  const d = dueDot(t);
+  return `<span class="tdot ${d.cls}" title="${esc(d.title)}"></span>`;
+}
 const IMP_LABEL = ['很低', '较低', '普通', '较高', '极高'];
 const IMP_COLOR = ['var(--faint)', 'var(--blue)', 'var(--ink-2)', 'var(--amber)', 'var(--red)'];
 function impHTML(p) {
@@ -849,7 +879,7 @@ function viewToday() {
     <div class="row ${done ? 'done' : ''}">
       <button class="ck ${done ? 'on' : ''}" data-act="${done ? 'undo' : 'complete'}" data-id="${t.id}" aria-label="完成">${ICON.check}</button>
       <div class="grow" data-act="open" data-id="${t.id}">
-        <div class="name">${esc(t.name)}</div>
+        <div class="name">${dotHTML(t)}${esc(t.name)}</div>
         <div class="meta">${chip(t)}<span class="chip">${t.repeat === 'weekly' ? '每周' : '每日'}</span>${done ? '' : `<span class="rw">+${Math.round(raw)} / +${tokenOf(raw)}</span>`}</div>
       </div>
     </div>`;
@@ -864,7 +894,7 @@ function viewToday() {
         ${s.done ? '' : `<span class="rw">+${Math.round(rawReward(t, statusOf(t), 0) * 0.7 / total)}</span>`}
       </div>`).join('');
     return `<div class="maincard ${isDone(t) ? 'done' : ''}" data-act="open" data-id="${t.id}">
-      <div class="mt"><h3>${esc(t.name)}</h3><span class="pcts">${total ? done + ' / ' + total : ''}</span></div>
+      <div class="mt"><h3>${dotHTML(t)}${esc(t.name)}</h3><span class="pcts">${total ? done + ' / ' + total : ''}</span></div>
       ${total ? `<div class="progress thin"><i style="width:${pct}%"></i></div>` : ''}
       ${subs}
       ${total ? '' : `<div class="meta">${chip(t)}${t.due ? `<span class="chip">截止 ${fmtT(t.due)}</span>` : ''}<span class="rw">+${Math.round(rawReward(t, statusOf(t), 0))}</span></div>`}
@@ -877,7 +907,7 @@ function viewToday() {
     <div class="row ${done ? 'done' : ''}">
       <button class="ck ${done ? 'on' : ''}" data-act="${done ? 'undo' : 'complete'}" data-id="${t.id}">${ICON.check}</button>
       <div class="grow" data-act="open" data-id="${t.id}">
-        <div class="name">${esc(t.name)}</div>
+        <div class="name">${dotHTML(t)}${esc(t.name)}</div>
         <div class="meta">${chip(t)}${impHTML(t.importance)}${prioHTML(t.prio)}<span class="rw">${done ? '已完成' : '+' + Math.round(raw) + ' / +' + tokenOf(raw)}</span></div>
       </div>
     </div>`;
@@ -927,7 +957,7 @@ function viewTasks() {
       body = items.map(t => {
         const total = t.subs.length, done = t.subs.filter(s => s.done).length;
         return `<div class="maincard ${isDone(t) ? 'done' : ''}" data-act="open" data-id="${t.id}">
-          <div class="mt"><h3>${esc(t.name)}</h3><span class="pcts">${total ? Math.round(done/total*100) + '%' : '单条'}</span></div>
+          <div class="mt"><h3>${dotHTML(t)}${esc(t.name)}</h3><span class="pcts">${total ? Math.round(done/total*100) + '%' : '单条'}</span></div>
           ${total ? `<div class="progress thin"><i style="width:${Math.round(done/total*100)}%"></i></div>` : ''}
           <div class="meta">${chip(t)}<span class="chip">${t.status === 'done' ? '已完成' : t.status === 'abandoned' ? '已放弃' : '进行中'}</span>${impHTML(t.importance)}${prioHTML(t.prio)}
             <span class="rw">全完成 +${Math.round(rawReward(t, statusOf(t), 0))}</span></div>
@@ -941,7 +971,7 @@ function viewTasks() {
         <div class="row ${done ? 'done' : ''}">
           <button class="ck ${done ? 'on' : ''}" data-act="${done ? 'undo' : 'complete'}" data-id="${t.id}">${ICON.check}</button>
           <div class="grow" data-act="open" data-id="${t.id}">
-            <div class="name">${esc(t.name)}</div>
+            <div class="name">${dotHTML(t)}${esc(t.name)}</div>
             <div class="meta">${chip(t)}${cat === 'daily' ? `<span class="chip">${t.repeat === 'weekly' ? '每周' : '每日'}</span>` : (t.due ? `<span class="chip">截止 ${fmtT(t.due)}</span>` : '<span class="chip">无截止</span>')}
               ${impHTML(t.importance)}${prioHTML(t.prio)}<span class="rw">${done ? '已完成' : '+' + Math.round(raw)}</span></div>
           </div>
@@ -1523,7 +1553,7 @@ function openTask(id) {
   const raw = rawReward(t, st, S.combo.streak);
   const done = isDone(t);
   openSheet(`
-    <h3 data-long="task" data-id="${t.id}">${esc(t.name)}</h3>
+    <h3 data-long="task" data-id="${t.id}">${dotHTML(t)}${esc(t.name)}</h3>
     <div class="sub">${esc(t.desc) || '-'}</div>
     <div class="facts" style="display:flex;flex-wrap:wrap;gap:6px;margin:12px 0">
       <span class="chip ${CATS[t.cat].c}">${CATS[t.cat].l}</span>
