@@ -417,6 +417,7 @@ const DEFAULT_SETTINGS = () => ({
   catW:{ main:3, side:1.8, daily:1 },
   dimW:{ '健康':1.4, '人际关系':1.2, '工作发展':1.3, '财务':1.2, '自我提升':1.4, '兴趣爱好':1.1 },
   statW:{ early:1.2, on:1.0, late:0.6, over:0.3 },
+  sleepW:{ good:1, near:0.7, far:0.4 },
   baseVals:{ '＜30分钟':10, '30分钟~2小时':30, '2小时~半天':80, '半天~1天':150, '1天以上':300 },
   combos:[[0,0],[2,5],[4,12],[8,25],[15,40]],
   comboCap:30, impSlope:0.1, prioSlope:0.1, ratio:0.2, a:0.0648, b:50,
@@ -612,6 +613,11 @@ function dailyStats() {
   return { total, dn };
 }
 const dailyRate = () => { const { total, dn } = dailyStats(); return total ? dn / total : 0; };
+// 「今日日常」分区与完成提醒只统计日常任务；睡眠打卡是独立作息分区，不计入这里
+function dailyTaskStats() {
+  const ds = daily();
+  return { total: ds.length, dn: ds.filter(isDone).length };
+}
 
 /* ----- 分区折叠 ----- */
 function collapsed(key) { return !!(S.ui && S.ui.collapsed && S.ui.collapsed[key]); }
@@ -632,11 +638,12 @@ function sleepDur(bed, wake) {
 }
 function sleepCoeff(r) {
   const g = S.settings.sleepGoal || { bed:'23:00', wake:'07:00' };
-  const b = hm(r.bed), w = hm(r.wake), gb = hm(g.bed), gw = hm(g.wake);
-  const bedGood = b <= gb, wakeGood = w >= gw;
-  if (bedGood && wakeGood) return 1;
-  if (b <= gb + 30 || w >= gw - 30) return 0.7;
-  return 0.4;
+  const sw = S.settings.sleepW || { good:1, near:0.7, far:0.4 };
+  const b = hm(r.bed), wm = hm(r.wake), gb = hm(g.bed), gw = hm(g.wake);
+  const bedGood = b <= gb, wakeGood = wm >= gw;
+  if (bedGood && wakeGood) return sw.good;
+  if (b <= gb + 30 || wm >= gw - 30) return sw.near;
+  return sw.far;
 }
 function fmtDur(h) {
   const hh = Math.floor(h), mm = Math.round((h - hh) * 60);
@@ -862,6 +869,7 @@ function refreshDots() {
     el.title = d.title;
   });
 }
+
 // 同组内按 ord 升序，旧数据 ord 缺失时回退到原始数组顺序
 const byOrd = (a, b) => (a.ord ?? 1e9) - (b.ord ?? 1e9) || S.tasks.indexOf(a) - S.tasks.indexOf(b);
 const IMP_LABEL = ['很低', '较低', '普通', '较高', '极高'];
@@ -879,8 +887,8 @@ function prioHTML(p) {
 
 function viewToday() {
   const now = new Date();
-  const { total: dsLen, dn } = dailyStats();
-  const rate = dailyRate();
+  const { total: dsLen, dn } = dailyTaskStats();
+  const rate = dsLen ? dn / dsLen : 0;
   const mains = S.tasks.filter(t => t.cat === 'main' && !archived(t)).sort(byOrd);
   const sides = S.tasks.filter(t => t.cat === 'side' && !archived(t)).sort(byOrd);
   const sRec = sleepRec();
@@ -952,7 +960,7 @@ function viewToday() {
       <div class="progress"><i style="width:${Math.min(100, S.exp / needExp(S.level) * 100)}%"></i></div>
       <div class="lvfoot"><span>TOKEN <em>${S.tokens.toFixed(1)}</em></span><span>距 Lv${S.level+1} 还差 <em>${needExp(S.level) - S.exp}</em></span></div>
     </div>
-    ${avg}
+    ${dsLen ? avg : ''}
     ${sleepEnabled() ? secHead('sleep', '作息打卡', `<span class="count">${sDone ? '已完成' : '未完成'}</span>`) + secBody('sleep', sleepCard) : ''}
     ${secHead('daily', '今日日常', `<span class="count">${dn} / ${dsLen}</span>`)}
     ${secBody('daily', `<div class="card">${rowsDaily}</div>`)}
@@ -1999,6 +2007,10 @@ function openSettingsReward() {
       ${row('按时完成', set.statW.on, 'statW.on')}
       ${row('延期完成（≤3 天）', set.statW.late, 'statW.late')}
       ${row('逾期完成（>3 天）', set.statW.over, 'statW.over')}
+      <div class="flabel" style="margin:12px 0 2px">作息打卡系数</div>
+      ${row('按时达标（入睡≤目标且起床≥目标）', set.sleepW.good, 'sleepW.good')}
+      ${row('仅一项差 30 分钟内', set.sleepW.near, 'sleepW.near')}
+      ${row('其余情况', set.sleepW.far, 'sleepW.far')}
       <div class="flabel" style="margin:12px 0 2px">其他参数</div>
       ${row('EXP → TOKEN 比例', set.ratio, 'ratio')}
       ${row('等级公式系数 a', set.a, 'a', '0.0001')}
@@ -2042,7 +2054,7 @@ function openRewardFormula() {
       </div>
       <div>
         <div class="flabel" style="margin:0 0 3px">作息打卡</div>
-        <div>按日常伪任务（健康 · ＜30分钟 · 按时）奖励 × 作息系数。目标 ${g.bed} 入睡 / ${g.wake} 起床：入睡不晚于目标且起床不早于目标 = 1.0；仅一项差 30 分钟内 = 0.7；其余 = 0.4。</div>
+        <div>按日常伪任务（健康 · ＜30分钟 · 按时）奖励 × 作息系数。目标 ${g.bed} 入睡 / ${g.wake} 起床：入睡不晚于目标且起床不早于目标 = ${set.sleepW.good}；仅一项差 30 分钟内 = ${set.sleepW.near}；其余 = ${set.sleepW.far}。</div>
       </div>
       <div>
         <div class="flabel" style="margin:0 0 3px">连击与等级</div>
