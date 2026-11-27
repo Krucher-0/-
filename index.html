@@ -395,7 +395,7 @@ function weekKey(dayStr = appDay()) {
 function shiftDay(n) { const d = new Date(); d.setDate(d.getDate() + n); return dstr(d); }
 function dayBefore(s) { const d = new Date(s + 'T12:00:00'); d.setDate(d.getDate() - 1); return dstr(d); }
 const uid = () => 'u' + Date.now().toString(36) + Math.random().toString(16).slice(2, 6);
-const esc = s => String(s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot'}[c]));
+const esc = s => String(s == null ? '' : s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot'}[c]));
 const fmtT = iso => { if (!iso) return ''; const d = new Date(iso); return `${pad(d.getMonth()+1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`; };
 
 const CATS = { main:{l:'主线',c:'main'}, side:{l:'支线',c:'side'}, daily:{l:'日常',c:'daily'} };
@@ -1385,7 +1385,7 @@ function closeSheet() {
 mask.addEventListener('click', e => { if (e.target === mask) closeSheet(); });
 
 /* ----- 新建任务（弹窗） ----- */
-const FORM = { cat:'side', dim:'自我提升', imp:3, prio:3, base:'30分钟~2小时', repeat:'none' };
+const FORM = { cat:'side', dim:'自我提升', imp:3, prio:3, base:'30分钟~2小时', repeat:'none', desc:'' };
 function toLocalInput(iso) { if (!iso) return ''; const d = new Date(iso); if (isNaN(d)) return ''; const p = n => String(n).padStart(2,'0'); return `${d.getFullYear()}-${p(d.getMonth()+1)}-${p(d.getDate())}T${p(d.getHours())}:${p(d.getMinutes())}`; }
 function buildFormHTML(isEdit) {
   return `
@@ -1394,7 +1394,7 @@ function buildFormHTML(isEdit) {
     <div style="margin-top:14px;display:flex;flex-direction:column;gap:13px">
       <div class="seg" id="seg">${['main','side','daily'].map(c => `<button data-act="f-cat" data-v="${c}" class="${FORM.cat === c ? 'on' : ''}">${CATS[c].l}</button>`).join('')}</div>
       <div class="field"><label for="f-name">任务名称</label><input id="f-name" type="text" maxlength="40" placeholder="例：读完《深度学习入门》第 3 章"></div>
-      <div class="field"><label for="f-desc">补充描述（可空，写清完成标准）</label><textarea id="f-desc" placeholder="完成后怎么算数？"></textarea></div>
+      <div class="field"><label for="f-desc">补充描述（可空，写清完成标准）</label><textarea id="f-desc" placeholder="完成后怎么算数？">${esc(FORM.desc || '')}</textarea></div>
       <div class="field"><span class="flabel">所属维度</span><div class="dims" id="dims">${dimList().map(d => `<button class="dimbtn ${FORM.dim === d ? 'on' : ''}" data-act="f-dim" data-v="${esc(d)}">${esc(d)}</button>`).join('')}</div></div>
       <div class="field"><span class="flabel">预计耗时（决定基础值）</span><select id="f-base">${BASE_LABELS.map(l => `<option value="${l}" ${FORM.base === l ? 'selected' : ''}>${l} · 基础值 ${S.settings.baseVals[l]}</option>`).join('')}</select></div>
       <div class="field"><span class="flabel">重要度（事情价值）</span>
@@ -1440,12 +1440,14 @@ function openNew(cat) {
   FORM.prio = d ? d.prio : 3;
   FORM.base = d ? d.base : '30分钟~2小时';
   FORM.repeat = d ? d.repeat : 'none';
+  FORM.desc = d ? d.desc : '';
   openSheet(buildFormHTML(false), () => {
     const set = (f, v) => { const n = document.getElementById(f); if (n) n.value = v; };
     if (d) { set('f-name', d.name); set('f-desc', d.desc); set('f-plan', d.plan); set('f-due', d.due); set('f-repeat', FORM.repeat); set('f-imp', FORM.imp); }
     ['f-name','f-desc','f-base','f-plan','f-due','f-repeat'].forEach(id => {
       const n = document.getElementById(id); if (n) n.addEventListener('input', updateEst);
     });
+    const de = document.getElementById('f-desc'); if (de) de.addEventListener('input', () => { FORM.desc = de.value; });
     const b = document.getElementById('f-base'); if (b) b.addEventListener('change', e => { FORM.base = e.target.value; updateEst(); });
     const rp = document.getElementById('f-repeat'); if (rp) rp.addEventListener('change', e => { FORM.repeat = e.target.value; updateEst(); });
     const im = document.getElementById('f-imp'); if (im) im.addEventListener('change', e => { FORM.imp = +e.target.value; updateEst(); });
@@ -1462,6 +1464,7 @@ function openEditTask(id) {
   FORM.prio = d ? d.prio : t.prio;
   FORM.base = d ? d.base : t.base;
   FORM.repeat = d ? d.repeat : (t.repeat || 'none');
+  FORM.desc = d ? d.desc : (t.desc || '');
   openSheet(buildFormHTML(true), () => {
     const set = (f, v) => { const n = document.getElementById(f); if (n) n.value = v; };
     set('f-name', d ? d.name : t.name);
@@ -1473,6 +1476,7 @@ function openEditTask(id) {
     ['f-name','f-desc','f-base','f-plan','f-due','f-repeat'].forEach(f => {
       const n = document.getElementById(f); if (n) n.addEventListener('input', updateEst);
     });
+    const de = document.getElementById('f-desc'); if (de) de.addEventListener('input', () => { FORM.desc = de.value; });
     const b = document.getElementById('f-base'); if (b) b.addEventListener('change', e => { FORM.base = e.target.value; updateEst(); });
     const rp = document.getElementById('f-repeat'); if (rp) rp.addEventListener('change', e => { FORM.repeat = e.target.value; updateEst(); });
     const im = document.getElementById('f-imp'); if (im) im.addEventListener('change', e => { FORM.imp = +e.target.value; updateEst(); });
@@ -1989,7 +1993,10 @@ document.addEventListener('click', e => {
         const ct = S.tasks.find(x => x.id === EDIT_ID);
         if (ct && Array.isArray(ct.subs) && ct.subs.length && !confirm('切换为日常任务后，子任务将被清空，确定继续吗？')) break;
       }
+      const descEl = document.getElementById('f-desc');
+      if (descEl) FORM.desc = descEl.value;
       FORM.cat = v; document.querySelectorAll('#seg button').forEach(b => b.classList.toggle('on', b.dataset.v === v));
+      if (descEl) descEl.value = FORM.desc;
       document.getElementById('repeat-wrap').hidden = v !== 'daily'; updateEst(); break;
     }
     case 'f-dim': FORM.dim = v; document.querySelectorAll('#dims .dimbtn').forEach(b => b.classList.toggle('on', b.dataset.v === v)); updateEst(); break;
