@@ -20,6 +20,7 @@ try{if(localStorage.getItem('dida-theme')==='light')document.documentElement.dat
 <link rel="stylesheet" href="https://miaoda.feishu.cn/fonts/css2?family=Noto+Sans+SC:wght@400;500;700;900&display=swap">
 <style>
 :root{
+  color-scheme: dark;
   --bg:#0B1626; --surface:#13223A; --surface-2:#1C2C48;
   --ink:#F2F5FA; --ink-2:#CBD6E4; --muted:#8DA2BD; --faint:#5E7290;
   --line:rgba(255,255,255,.09); --line-2:rgba(255,255,255,.16);
@@ -41,6 +42,7 @@ try{if(localStorage.getItem('dida-theme')==='light')document.documentElement.dat
   --r:14px;
 }
 :root[data-theme="light"]{
+  color-scheme: light;
   --bg:#F1F5FA; --surface:#FFFFFF; --surface-2:#E7EEF6;
   --ink:#13223A; --ink-2:#33455F; --muted:#5E7290; --faint:#8497AE;
   --line:rgba(19,34,58,.10); --line-2:rgba(19,34,58,.18);
@@ -147,6 +149,13 @@ input,select,textarea{font-family:inherit;font-size:16px;color:inherit}
 .prio{display:flex;gap:3px;align-items:center}
 .prio i{width:5px;height:5px;border-radius:50%;border:1px solid var(--line-2)}
 .prio i.f{background:var(--ink-2);border-color:var(--ink-2)}
+.stars{display:inline-flex;gap:3px;align-items:center;flex:none}
+.stars span{display:grid;place-items:center}
+.stars button{width:24px;height:24px;display:grid;place-items:center;border:0;background:none;padding:0}
+.stars svg{width:13px;height:13px;stroke:var(--line-2);fill:none;stroke-width:1.6;stroke-linejoin:round}
+.stars button svg{width:17px;height:17px}
+.stars span.on svg{stroke:var(--ink-2);fill:var(--ink-2)}
+.stars button.on svg{stroke:var(--ink-2);fill:var(--ink-2)}
 
 .maincard{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:14px;margin-bottom:10px}
 .maincard.done h3{color:var(--faint);text-decoration:line-through;text-decoration-thickness:1px}
@@ -178,7 +187,12 @@ input,select,textarea{font-family:inherit;font-size:16px;color:inherit}
 .seg button.on{background:var(--green);color:var(--on-accent);font-weight:700}
 .field label,.flabel{display:block;font-size:11.5px;letter-spacing:.1em;color:var(--muted);margin-bottom:7px}
 .field input[type=text],.field textarea,.field select,.field input[type=number],.field input[type=time],.field input[type=date],.field input[type=datetime-local]{
-  width:100%;min-width:0;padding:11px 12px;border:1px solid var(--line-2);border-radius:10px;background:var(--surface);outline:none;font-size:15px}
+  width:100%;min-width:0;padding:11px 12px;border:1px solid var(--line-2);border-radius:10px;background:var(--surface-2);color:var(--ink);outline:none;font-size:15px}
+.field select{appearance:none;-webkit-appearance:none;padding-right:34px;color:var(--ink);
+  background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'><path d='M6 9l6 6 6-6'/></svg>");
+  background-repeat:no-repeat;background-position:right 12px center}
+.field select option,.field select optgroup{background:var(--surface-2);color:var(--ink)}
+.field input[type=datetime-local],.field input[type=time],.field input[type=date]{color-scheme:inherit}
 .field textarea{resize:vertical;min-height:64px;line-height:1.6}
 .field input:focus,.field textarea:focus,.field select:focus{border-color:var(--green);box-shadow:0 0 0 3px var(--focus-ring)}
 input.plain-inp{padding:8px 10px;border:1px solid var(--line-2);border-radius:8px;background:var(--surface-2);font-size:13px;outline:none}
@@ -186,12 +200,8 @@ input.plain-inp:focus{border-color:var(--green)}
 .dims{display:flex;flex-wrap:wrap;gap:7px;min-width:0}
 .dimbtn{min-width:0;border:1px solid var(--line-2);background:var(--surface);border-radius:8px;padding:7px 10px;font-size:12.5px;color:var(--ink-2)}
 .dimbtn.on{background:var(--green);border-color:var(--green);color:var(--on-accent);font-weight:700}
-.pickrow{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px 13px;border:1px solid var(--line-2);border-radius:10px;background:var(--surface)}
+.pickrow{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:11px 12px;border:1px solid var(--line-2);border-radius:10px;background:var(--surface-2)}
 .pickrow .pk{font-size:12.5px;color:var(--muted);flex:none}
-.stars{display:flex;gap:7px;flex:none}
-.stars button{width:24px;height:24px;display:grid;place-items:center}
-.stars svg{width:17px;height:17px;stroke:var(--line-2);fill:none;stroke-width:1.6;stroke-linejoin:round}
-.stars button.on svg{stroke:var(--ink-2);fill:var(--ink-2)}
 .two{display:grid;grid-template-columns:1fr 1fr;gap:10px;min-width:0}
 .two .field{min-width:0}
 .range-box{border:1px solid var(--line-2);border-radius:10px;background:var(--surface);padding:12px 13px;margin-top:12px}
@@ -403,7 +413,7 @@ const DEFAULT_SETTINGS = () => ({
   statW:{ early:1.2, on:1.0, late:0.6, over:0.3 },
   baseVals:{ '＜30分钟':10, '30分钟~2小时':30, '2小时~半天':80, '半天~1天':150, '1天以上':300 },
   combos:[[0,0],[2,5],[4,12],[8,25],[15,40]],
-  comboCap:30, slope:0.1, ratio:0.2, a:0.0648, b:50,
+  comboCap:30, impSlope:0.1, prioSlope:0.1, ratio:0.2, a:0.0648, b:50,
   overdraft:-50, signCost:30, signQuota:2, resetHour:4, animate:true, sleepEnabled:true, sound:true,
   sleepGoal:{ bed:'23:00', wake:'07:00' }
 });
@@ -564,9 +574,11 @@ function rawReward(t, statusKey, streak) {
   const catW = set.catW[t.cat] ?? 1;
   const dW = set.dimW[t.dim] ?? 1.2;
   const stW = set.statW[statusKey] ?? 1;
-  const prio = 1 + set.slope * (t.prio - 3);
+  const imp = t.importance ?? 3;
+  const impCoef = 1 + set.impSlope * (imp - 3);
+  const prioCoef = 1 + set.prioSlope * (t.prio - 3);
   const combo = t.cat === 'daily' ? comboBonus(streak) : 0;
-  return base * catW * dW * stW * prio + combo;
+  return base * catW * dW * stW * impCoef * prioCoef + combo;
 }
 
 const doneToday = t => t.cat === 'daily'
@@ -812,9 +824,16 @@ const ICON = {
 function chip(t) {
   return `<span class="chip ${CATS[t.cat].c}">${CATS[t.cat].l}</span><span class="chip">${esc(t.dim)}</span>`;
 }
+const IMP_LABEL = ['很低', '较低', '普通', '较高', '极高'];
+const IMP_COLOR = ['var(--faint)', 'var(--blue)', 'var(--ink-2)', 'var(--amber)', 'var(--red)'];
+function impHTML(p) {
+  const i = Math.min(4, Math.max(0, (p == null ? 3 : p) - 1));
+  return `<span class="chip" style="color:${IMP_COLOR[i]}">重要度·${IMP_LABEL[i]}</span>`;
+}
 function prioHTML(p) {
-  let s = '<span class="prio">';
-  for (let i = 1; i <= 5; i++) s += `<i class="${i <= p ? 'f' : ''}"></i>`;
+  const pn = p || 3;
+  let s = '<span class="stars">';
+  for (let i = 1; i <= 5; i++) s += `<span class="${i <= pn ? 'on' : ''}">${ICON.star}</span>`;
   return s + '</span>';
 }
 
@@ -865,7 +884,7 @@ function viewToday() {
       <button class="ck ${done ? 'on' : ''}" data-act="${done ? 'undo' : 'complete'}" data-id="${t.id}">${ICON.check}</button>
       <div class="grow" data-act="open" data-id="${t.id}">
         <div class="name">${esc(t.name)}</div>
-        <div class="meta">${chip(t)}${prioHTML(t.prio)}<span class="rw">${done ? '已完成' : '+' + Math.round(raw) + ' / +' + tokenOf(raw)}</span></div>
+        <div class="meta">${chip(t)}${impHTML(t.importance)}${prioHTML(t.prio)}<span class="rw">${done ? '已完成' : '+' + Math.round(raw) + ' / +' + tokenOf(raw)}</span></div>
       </div>
     </div>`;
   }).join('') || `<div class="empty" data-act="open-new" data-cat="side">还没有支线任务，加一条？</div>`;
@@ -916,7 +935,7 @@ function viewTasks() {
         return `<div class="maincard ${isDone(t) ? 'done' : ''}" data-act="open" data-id="${t.id}">
           <div class="mt"><h3>${esc(t.name)}</h3><span class="pcts">${total ? Math.round(done/total*100) + '%' : '单条'}</span></div>
           ${total ? `<div class="progress thin"><i style="width:${Math.round(done/total*100)}%"></i></div>` : ''}
-          <div class="meta">${chip(t)}<span class="chip">${t.status === 'done' ? '已完成' : t.status === 'abandoned' ? '已放弃' : '进行中'}</span>${prioHTML(t.prio)}
+          <div class="meta">${chip(t)}<span class="chip">${t.status === 'done' ? '已完成' : t.status === 'abandoned' ? '已放弃' : '进行中'}</span>${impHTML(t.importance)}${prioHTML(t.prio)}
             <span class="rw">全完成 +${Math.round(rawReward(t, statusOf(t), 0))}</span></div>
         </div>`;
       }).join('');
@@ -930,7 +949,7 @@ function viewTasks() {
           <div class="grow" data-act="open" data-id="${t.id}">
             <div class="name">${esc(t.name)}</div>
             <div class="meta">${chip(t)}${cat === 'daily' ? `<span class="chip">${t.repeat === 'weekly' ? '每周' : '每日'}</span>` : (t.due ? `<span class="chip">截止 ${fmtT(t.due)}</span>` : '<span class="chip">无截止</span>')}
-              ${prioHTML(t.prio)}<span class="rw">${done ? '已完成' : '+' + Math.round(raw)}</span></div>
+              ${impHTML(t.importance)}${prioHTML(t.prio)}<span class="rw">${done ? '已完成' : '+' + Math.round(raw)}</span></div>
           </div>
         </div>`;
       }).join('') + `</div>`;
@@ -986,7 +1005,7 @@ function renderHistoryList() {
       <div class="row done">
         <div class="grow" data-act="open" data-id="${t.id}">
           <div class="name">${esc(t.name)}</div>
-          <div class="meta">${chip(t)}${prioHTML(t.prio)}${t.doneAt ? `<span class="chip">${fmtT(t.doneAt)}</span>` : ''}<span class="rw">${rewardOf(t.id)}</span></div>
+          <div class="meta">${chip(t)}${impHTML(t.importance)}${prioHTML(t.prio)}${t.doneAt ? `<span class="chip">${fmtT(t.doneAt)}</span>` : ''}<span class="rw">${rewardOf(t.id)}</span></div>
         </div>
       </div>`).join('')}</div>`).join('')
     : '<div class="empty">这个时间段还没有已完成的任务</div>';
@@ -1351,14 +1370,20 @@ document.addEventListener('contextmenu', e => {
 
 /* =============== 弹层 =============== */
 const mask = $('#mask'), sheet = $('#sheet');
-let sheetTask = null, SUBEDIT = null, EDIT_ID = null;
+let sheetTask = null, SUBEDIT = null, EDIT_ID = null, EDIT_DRAFT = null;
 function openSheet(html, after) {
   sheet.innerHTML = `<div class="grab"></div>` + html;
   mask.classList.add('on');
   sfx('open');
   after && after();
 }
+function snapshotDraft() {
+  if (!document.getElementById('f-name')) return;
+  const g = id => { const n = document.getElementById(id); return n ? n.value : ''; };
+  EDIT_DRAFT = { id: EDIT_ID || null, cat: FORM.cat, name: g('f-name'), desc: g('f-desc'), dim: FORM.dim, imp: FORM.imp, prio: FORM.prio, base: FORM.base, repeat: FORM.repeat, plan: g('f-plan'), due: g('f-due') };
+}
 function closeSheet() {
+  snapshotDraft();
   mask.classList.remove('on'); sheetTask = null; SUBEDIT = null; EDIT_ID = null;
   if (sleepChart) { try { sleepChart.dispose(); } catch (e) {} sleepChart = null; }
   sfx('close');
@@ -1366,19 +1391,22 @@ function closeSheet() {
 mask.addEventListener('click', e => { if (e.target === mask) closeSheet(); });
 
 /* ----- 新建任务（弹窗） ----- */
-const FORM = { cat:'side', dim:'自我提升', prio:3, base:'30分钟~2小时', repeat:'none' };
+const FORM = { cat:'side', dim:'自我提升', imp:3, prio:3, base:'30分钟~2小时', repeat:'none' };
 function toLocalInput(iso) { if (!iso) return ''; const d = new Date(iso); if (isNaN(d)) return ''; const p = n => String(n).padStart(2,'0'); return `${d.getFullYear()}-${p(d.getMonth()+1)}-${p(d.getDate())}T${p(d.getHours())}:${p(d.getMinutes())}`; }
 function buildFormHTML(isEdit) {
   return `
     <h3>${isEdit ? '编辑任务' : '新建任务'}</h3>
     <div class="sub">${isEdit ? '修改后保存，奖励按公式实时预估。' : '填完保存，奖励按公式实时预估。'}</div>
     <div style="margin-top:14px;display:flex;flex-direction:column;gap:13px">
-      ${isEdit ? '' : `<div class="seg" id="seg">${['main','side','daily'].map(c => `<button data-act="f-cat" data-v="${c}" class="${FORM.cat === c ? 'on' : ''}">${CATS[c].l}</button>`).join('')}</div>`}
+      <div class="seg" id="seg">${['main','side','daily'].map(c => `<button data-act="f-cat" data-v="${c}" class="${FORM.cat === c ? 'on' : ''}">${CATS[c].l}</button>`).join('')}</div>
       <div class="field"><label for="f-name">任务名称</label><input id="f-name" type="text" maxlength="40" placeholder="例：读完《深度学习入门》第 3 章"></div>
       <div class="field"><label for="f-desc">补充描述（可空，写清完成标准）</label><textarea id="f-desc" placeholder="完成后怎么算数？"></textarea></div>
       <div class="field"><span class="flabel">所属维度</span><div class="dims" id="dims">${dimList().map(d => `<button class="dimbtn ${FORM.dim === d ? 'on' : ''}" data-act="f-dim" data-v="${esc(d)}">${esc(d)}</button>`).join('')}</div></div>
       <div class="field"><span class="flabel">预计耗时（决定基础值）</span><select id="f-base">${BASE_LABELS.map(l => `<option value="${l}" ${FORM.base === l ? 'selected' : ''}>${l} · 基础值 ${S.settings.baseVals[l]}</option>`).join('')}</select></div>
-      <div class="pickrow"><span class="pk">优先级</span><span class="stars" id="stars">${[1,2,3,4,5].map(i => `<button data-act="f-prio" data-v="${i}" class="${FORM.prio >= i ? 'on' : ''}" aria-label="${i} 星">${ICON.star}</button>`).join('')}</span></div>
+      <div class="field"><span class="flabel">重要度（事情价值）</span>
+        <select id="f-imp">${[1,2,3,4,5].map(i => `<option value="${i}" ${FORM.imp === i ? 'selected' : ''}>${IMP_LABEL[i-1]}</option>`).join('')}</select>
+      </div>
+      <div class="pickrow"><span class="pk">优先度（紧急程度）</span><span class="stars" id="stars">${[1,2,3,4,5].map(i => `<button type="button" data-act="f-prio" data-v="${i}" class="${FORM.prio >= i ? 'on' : ''}" aria-label="${i} 星">${ICON.star}</button>`).join('')}</span></div>
       <div class="two">
         <div class="field"><label for="f-plan">计划时间</label><input id="f-plan" type="datetime-local"></div>
         <div class="field"><label for="f-due">截止时间</label><input id="f-due" type="datetime-local"></div>
@@ -1390,12 +1418,15 @@ function buildFormHTML(isEdit) {
         <div class="nums"><b id="est-exp">0</b><span>EXP</span><b id="est-tok">0</b><span>TOKEN</span></div>
         <div class="eq" id="est-eq"></div>
       </div>
-      <button class="btn-primary" data-act="${EDIT_ID ? 'save-edit' : 'save-new'}">${EDIT_ID ? '保存修改' : '保存任务'}</button>
+      <div style="display:flex;gap:10px">
+        ${isEdit ? `<button class="btn-ghost" data-act="cancel-edit" style="flex:1">取消修改</button>` : ''}
+        <button class="btn-primary" data-act="${EDIT_ID ? 'save-edit' : 'save-new'}" style="${isEdit ? 'flex:1' : 'width:100%'}">${EDIT_ID ? '保存修改' : '保存任务'}</button>
+      </div>
     </div>`;
 }
 function estTask() {
   const nameEl = document.getElementById('f-name');
-  return { name: nameEl ? nameEl.value : '', cat: FORM.cat, dim: FORM.dim, prio: FORM.prio, base: FORM.base, repeat: FORM.repeat };
+  return { name: nameEl ? nameEl.value : '', cat: FORM.cat, dim: FORM.dim, imp: FORM.imp, prio: FORM.prio, base: FORM.base, repeat: FORM.repeat };
 }
 function updateEst() {
   const t = estTask();
@@ -1404,33 +1435,53 @@ function updateEst() {
   const e1 = document.getElementById('est-exp'), e2 = document.getElementById('est-tok'), eq = document.getElementById('est-eq');
   if (e1) e1.textContent = exp;
   if (e2) e2.textContent = tok.toFixed(1);
-  if (eq) eq.textContent = `${S.settings.baseVals[t.base] ?? 30} × ${S.settings.catW[t.cat]} × ${S.settings.dimW[t.dim] ?? 1.2} × 1.00 × ${(1 + S.settings.slope*(t.prio-3)).toFixed(2)} = ${raw.toFixed(1)} → EXP ${exp} / TOKEN ${tok.toFixed(1)}`;
+  if (eq) eq.textContent = `${S.settings.baseVals[t.base] ?? 30} × ${S.settings.catW[t.cat]} × ${S.settings.dimW[t.dim] ?? 1.2} × 1.00 × ${(1 + S.settings.impSlope*(t.imp-3)).toFixed(2)} × ${(1 + S.settings.prioSlope*(t.prio-3)).toFixed(2)} = ${raw.toFixed(1)} → EXP ${exp} / TOKEN ${tok.toFixed(1)}`;
 }
 function openNew(cat) {
   EDIT_ID = null;
-  FORM.cat = cat || 'side'; FORM.dim = dimList()[0] || '自我提升'; FORM.prio = 3; FORM.base = '30分钟~2小时'; FORM.repeat = 'none';
+  const d = EDIT_DRAFT && EDIT_DRAFT.id == null ? EDIT_DRAFT : null;
+  FORM.cat = d ? d.cat : (cat || 'side');
+  FORM.dim = d ? d.dim : (dimList()[0] || '自我提升');
+  FORM.imp = d ? d.imp : 3;
+  FORM.prio = d ? d.prio : 3;
+  FORM.base = d ? d.base : '30分钟~2小时';
+  FORM.repeat = d ? d.repeat : 'none';
   openSheet(buildFormHTML(false), () => {
+    const set = (f, v) => { const n = document.getElementById(f); if (n) n.value = v; };
+    if (d) { set('f-name', d.name); set('f-desc', d.desc); set('f-plan', d.plan); set('f-due', d.due); set('f-repeat', FORM.repeat); set('f-imp', FORM.imp); }
     ['f-name','f-desc','f-base','f-plan','f-due','f-repeat'].forEach(id => {
       const n = document.getElementById(id); if (n) n.addEventListener('input', updateEst);
     });
     const b = document.getElementById('f-base'); if (b) b.addEventListener('change', e => { FORM.base = e.target.value; updateEst(); });
+    const rp = document.getElementById('f-repeat'); if (rp) rp.addEventListener('change', e => { FORM.repeat = e.target.value; updateEst(); });
+    const im = document.getElementById('f-imp'); if (im) im.addEventListener('change', e => { FORM.imp = +e.target.value; updateEst(); });
     updateEst();
   });
 }
 function openEditTask(id) {
-  const t = S.tasks.find(x => x.id === id); if (!t) return;
+  const t = S.tasks.find(x => x.id === id); if (!t) { EDIT_DRAFT = null; return; }
   EDIT_ID = id;
-  FORM.cat = t.cat; FORM.dim = t.dim; FORM.prio = t.prio; FORM.base = t.base; FORM.repeat = t.repeat || 'none';
+  const d = EDIT_DRAFT && EDIT_DRAFT.id === id ? EDIT_DRAFT : null;
+  FORM.cat = t.cat;
+  FORM.dim = d ? d.dim : t.dim;
+  FORM.imp = d ? d.imp : (t.importance ?? 3);
+  FORM.prio = d ? d.prio : t.prio;
+  FORM.base = d ? d.base : t.base;
+  FORM.repeat = d ? d.repeat : (t.repeat || 'none');
   openSheet(buildFormHTML(true), () => {
     const set = (f, v) => { const n = document.getElementById(f); if (n) n.value = v; };
-    set('f-name', t.name); set('f-desc', t.desc || '');
-    set('f-plan', toLocalInput(t.plan)); set('f-due', toLocalInput(t.due));
+    set('f-name', d ? d.name : t.name);
+    set('f-desc', d ? d.desc : (t.desc || ''));
+    set('f-plan', d ? d.plan : toLocalInput(t.plan));
+    set('f-due', d ? d.due : toLocalInput(t.due));
     set('f-repeat', FORM.repeat);
+    set('f-imp', FORM.imp);
     ['f-name','f-desc','f-base','f-plan','f-due','f-repeat'].forEach(f => {
       const n = document.getElementById(f); if (n) n.addEventListener('input', updateEst);
     });
     const b = document.getElementById('f-base'); if (b) b.addEventListener('change', e => { FORM.base = e.target.value; updateEst(); });
     const rp = document.getElementById('f-repeat'); if (rp) rp.addEventListener('change', e => { FORM.repeat = e.target.value; updateEst(); });
+    const im = document.getElementById('f-imp'); if (im) im.addEventListener('change', e => { FORM.imp = +e.target.value; updateEst(); });
     updateEst();
   });
 }
@@ -1444,20 +1495,23 @@ function saveTask() {
   if (EDIT_ID) {
     const t = S.tasks.find(x => x.id === EDIT_ID);
     if (t) {
-      t.name = name; t.desc = desc || null; t.dim = FORM.dim; t.prio = FORM.prio; t.base = FORM.base;
+      t.cat = FORM.cat;
+      t.name = name; t.desc = desc || null; t.dim = FORM.dim; t.importance = FORM.imp; t.prio = FORM.prio; t.base = FORM.base;
       t.plan = plan ? new Date(plan).toISOString() : null; t.due = due ? new Date(due).toISOString() : null;
       t.repeat = repeat;
+      if (FORM.cat === 'daily') t.subs = [];
     }
-    EDIT_ID = null;
+    EDIT_ID = null; EDIT_DRAFT = null;
     save(); renderAll(); closeSheet();
     toast('任务已更新');
     return;
   }
   S.tasks.unshift({
-    id: uid(), name, desc, cat: FORM.cat, dim: FORM.dim, prio: FORM.prio, base: FORM.base,
+    id: uid(), name, desc, cat: FORM.cat, dim: FORM.dim, importance: FORM.imp, prio: FORM.prio, base: FORM.base,
     plan: plan ? new Date(plan).toISOString() : null, due: due ? new Date(due).toISOString() : null,
     repeat, subs: [], count: 0, doneAt: null, lastDoneDay: null, status: 'todo'
   });
+  EDIT_DRAFT = null;
   save(); renderAll(); closeSheet();
   toast('已保存到' + CATS[FORM.cat].l);
   setView('tasks');
@@ -1476,14 +1530,14 @@ function openTask(id) {
     <div class="facts" style="display:flex;flex-wrap:wrap;gap:6px;margin:12px 0">
       <span class="chip ${CATS[t.cat].c}">${CATS[t.cat].l}</span>
       <span class="chip">${esc(t.dim)}</span>
-      <span class="chip">${prioHTML(t.prio)}</span>
+      ${impHTML(t.importance)}${prioHTML(t.prio)}
       ${t.repeat !== 'none' ? `<span class="chip">${t.repeat === 'weekly' ? '每周' : '每日'}</span>` : ''}
       ${t.plan ? `<span class="chip">计划 ${fmtT(t.plan)}</span>` : ''}${t.due ? `<span class="chip">截止 ${fmtT(t.due)}</span>` : ''}
       <span class="chip">${t.base} 基础</span></div>
     <div class="est" style="margin-top:4px">
       <div class="et"><span>完成奖励</span><span>${done ? '已完成' : '任务预期'}</span></div>
       <div class="nums"><b>${Math.round(raw)}</b><span>EXP</span><b>${tokenOf(raw).toFixed(1)}</b><span>TOKEN</span></div>
-      <div class="eq">基础 ${S.settings.baseVals[t.base] ?? 30} × ${S.settings.catW[t.cat]} × ${S.settings.dimW[t.dim] ?? 1.2} × ${S.settings.statW[st]} × ${(1 + S.settings.slope*(t.prio-3)).toFixed(2)}${t.cat === 'daily' ? ' + 连击 ' + comboBonus(S.combo.streak) : ''}</div>
+      <div class="eq">基础 ${S.settings.baseVals[t.base] ?? 30} × ${S.settings.catW[t.cat]} × ${S.settings.dimW[t.dim] ?? 1.2} × ${S.settings.statW[st]} × ${(1 + S.settings.impSlope*((t.importance ?? 3)-3)).toFixed(2)} × ${(1 + S.settings.prioSlope*(t.prio-3)).toFixed(2)}${t.cat === 'daily' ? ' + 连击 ' + comboBonus(S.combo.streak) : ''}</div>
     </div>
     ${t.cat === 'main' ? `<div class="sec" style="margin:16px 0 6px"><h2>子任务管理</h2><span class="rule"></span><span class="count">${t.subs.filter(s=>s.done).length}/${t.subs.length}</span></div>
       <div class="card">${t.subs.map(s => SUBEDIT === s.id ? `
@@ -1816,7 +1870,8 @@ function openSettingsReward() {
       ${row('EXP → TOKEN 比例', set.ratio, 'ratio')}
       ${row('等级公式系数 a', set.a, 'a', '0.0001')}
       ${row('等级公式常数 b', set.b, 'b', '1')}
-      ${row('优先级斜率', set.slope, 'slope')}
+      ${row('重要度斜率', set.impSlope, 'impSlope')}
+      ${row('优先度斜率', set.prioSlope, 'prioSlope')}
       ${row('连击上限（天）', set.comboCap, 'comboCap', '1')}
       ${row('补签价格（TOKEN）', set.signCost, 'signCost', '1')}
       ${row('每月补签次数', set.signQuota, 'signQuota', '1')}
@@ -1895,12 +1950,19 @@ document.addEventListener('click', e => {
     case 'open-ledger': openLedger(); break;
     case 'led-clear': LRANGE = { from:'', to:'' }; openLedger(); break;
     case 'filter': FILTER = el.dataset.f; $('#v-tasks').innerHTML = viewTasks(); break;
-    case 'f-cat': FORM.cat = v; document.querySelectorAll('#seg button').forEach(b => b.classList.toggle('on', b.dataset.v === v));
+    case 'f-cat': {
+      if (EDIT_ID && v === 'daily') {
+        const ct = S.tasks.find(x => x.id === EDIT_ID);
+        if (ct && Array.isArray(ct.subs) && ct.subs.length && !confirm('切换为日常任务后，子任务将被清空，确定继续吗？')) break;
+      }
+      FORM.cat = v; document.querySelectorAll('#seg button').forEach(b => b.classList.toggle('on', b.dataset.v === v));
       document.getElementById('repeat-wrap').hidden = v !== 'daily'; updateEst(); break;
+    }
     case 'f-dim': FORM.dim = v; document.querySelectorAll('#dims .dimbtn').forEach(b => b.classList.toggle('on', b.dataset.v === v)); updateEst(); break;
     case 'f-prio': FORM.prio = +v; document.querySelectorAll('#stars button').forEach(b => b.classList.toggle('on', +b.dataset.v <= +v)); updateEst(); break;
     case 'save-new': saveTask(); break;
     case 'save-edit': saveTask(); break;
+    case 'cancel-edit': EDIT_ID = null; EDIT_DRAFT = null; closeSheet(); toast('已放弃未保存修改'); break;
     case 'spend': openSpend(); break;
     case 'sleep-bed': openSleepForm('bed'); break;
     case 'sleep-wake': openSleepForm('wake'); break;
